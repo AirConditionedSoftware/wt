@@ -18,6 +18,8 @@ var (
 	addNoPrefix    bool
 	addCopyHooks   bool
 	addNoCopyHooks bool
+	addCopyFile    []string
+	addNoCopyFiles bool
 )
 
 type branchKind int
@@ -143,7 +145,62 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	patterns := settings.CopyFiles
+	if addNoCopyFiles {
+		patterns = nil
+	}
+	patterns = append(append([]string{}, patterns...), addCopyFile...)
+	if len(patterns) > 0 {
+		if err := copyFilesTo(mainPath, target, patterns); err != nil {
+			return fmt.Errorf("worktree created at %s, but copying files failed: %w", target, err)
+		}
+	}
+
 	fmt.Println(target)
+	return nil
+}
+
+// copyFilesTo copies untracked files (e.g. .env) from the main worktree into
+// the new one. Patterns are filepath.Glob globs relative to the main
+// worktree; a matched directory copies recursively.
+func copyFilesTo(mainPath, worktreePath string, patterns []string) error {
+	copied := 0
+	for _, pat := range patterns {
+		if !filepath.IsLocal(pat) {
+			return fmt.Errorf("copy_files pattern %q must stay inside the repository", pat)
+		}
+		matches, err := filepath.Glob(filepath.Join(mainPath, pat))
+		if err != nil {
+			return fmt.Errorf("copy_files pattern %q: %w", pat, err)
+		}
+		if len(matches) == 0 {
+			fmt.Fprintf(os.Stderr, "copy_files: no match for %q\n", pat)
+			continue
+		}
+		for _, src := range matches {
+			rel, err := filepath.Rel(mainPath, src)
+			if err != nil {
+				return err
+			}
+			dst := filepath.Join(worktreePath, rel)
+			info, err := os.Stat(src)
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				err = copyDir(src, dst)
+			} else {
+				err = copyFile(src, dst, info.Mode().Perm())
+			}
+			if err != nil {
+				return err
+			}
+			copied++
+		}
+	}
+	if copied > 0 {
+		fmt.Fprintf(os.Stderr, "Copied %d file(s) into %s\n", copied, worktreePath)
+	}
 	return nil
 }
 
@@ -198,12 +255,19 @@ func copyDir(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		data, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(target, data, info.Mode().Perm())
+		return copyFile(p, target, info.Mode().Perm())
 	})
+}
+
+func copyFile(src, dst string, perm fs.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, perm)
 }
 
 func init() {
@@ -212,5 +276,7 @@ func init() {
 	addCmd.Flags().BoolVar(&addNoPrefix, "no-prefix", false, "do not apply the configured branch_prefix")
 	addCmd.Flags().BoolVar(&addCopyHooks, "copy-hooks", false, "copy the repo's git hooks into the new worktree")
 	addCmd.Flags().BoolVar(&addNoCopyHooks, "no-copy-hooks", false, "do not copy hooks even if the config enables copy_hooks")
+	addCmd.Flags().StringArrayVar(&addCopyFile, "copy-file", nil, "extra file or glob (relative to the main worktree) to copy into the new worktree; repeatable")
+	addCmd.Flags().BoolVar(&addNoCopyFiles, "no-copy-files", false, "skip the config's copy_files list")
 	rootCmd.AddCommand(addCmd)
 }

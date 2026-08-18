@@ -171,6 +171,28 @@ func TestEndToEnd(t *testing.T) {
 		}
 	})
 
+	t.Run("du lists sizes per worktree", func(t *testing.T) {
+		out, _, err := wt(t, home, cfg, repo, "du")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range []string{"BRANCH", "main", "TOTAL"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("du output missing %q:\n%s", want, out)
+			}
+		}
+		out2, _, err := wt(t, home, cfg, repo, "du", "--unit", "KB")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out2, "KB") {
+			t.Errorf("du --unit KB output has no KB sizes:\n%s", out2)
+		}
+		if _, _, err := wt(t, home, cfg, repo, "du", "--unit", "TB"); err == nil {
+			t.Error("du with invalid unit should fail")
+		}
+	})
+
 	t.Run("list outside a repo fails", func(t *testing.T) {
 		if _, _, err := wt(t, home, cfg, t.TempDir(), "list"); err == nil {
 			t.Error("expected error outside a git repository")
@@ -498,6 +520,63 @@ func TestEndToEnd(t *testing.T) {
 		}
 		if _, err := os.Stat(filepath.Join(out2, ".githooks")); !os.IsNotExist(err) {
 			t.Error("--no-copy-hooks should have prevented the copy")
+		}
+	})
+
+	t.Run("copy_files config copies untracked files", func(t *testing.T) {
+		for name, content := range map[string]string{
+			".env":       "SECRET=1\n",
+			".env.local": "LOCAL=1\n",
+		} {
+			if err := os.WriteFile(filepath.Join(repo, name), []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := os.MkdirAll(filepath.Join(repo, "local-conf"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(repo, "local-conf", "dev.json"), []byte("{}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		cfgFiles := filepath.Join(work, "wt-files.json")
+		cfgJSON := `{
+  "worktree_dir": "` + trees + `/{repo}/{branch}",
+  "repos": [{"path": "` + repo + `", "copy_files": [".env*", "local-conf"]}]
+}`
+		if err := os.WriteFile(cfgFiles, []byte(cfgJSON), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		out, stderr, err := wt(t, home, cfgFiles, repo, "add", "with-files")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		for _, f := range []string{".env", ".env.local", "local-conf/dev.json"} {
+			if _, err := os.Stat(filepath.Join(out, f)); err != nil {
+				t.Errorf("%s not copied: %v", f, err)
+			}
+		}
+
+		out2, _, err := wt(t, home, cfgFiles, repo, "add", "--no-copy-files", "without-files")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(out2, ".env")); !os.IsNotExist(err) {
+			t.Error("--no-copy-files should have prevented the copy")
+		}
+	})
+
+	t.Run("copy-file flag without config", func(t *testing.T) {
+		out, _, err := wt(t, home, cfgPrefix, repo, "add", "--copy-file", ".env", "flag-files")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(out, ".env")); err != nil {
+			t.Errorf(".env not copied via --copy-file: %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(out, ".env.local")); !os.IsNotExist(err) {
+			t.Error(".env.local should not have been copied")
 		}
 	})
 

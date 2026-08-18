@@ -39,6 +39,13 @@ go install github.com/AirConditionedSoftware/wt@latest
     `branch_prefix` if one is set (`--no-prefix` skips it)
   - `--copy-hooks` copies the repo's git hooks into the new worktree;
     `--no-copy-hooks` overrides a `copy_hooks` config that enables it
+  - `--copy-file <path-or-glob>` (repeatable) copies untracked files into
+    the new worktree on top of the config's `copy_files` list;
+    `--no-copy-files` skips the config list
+- `wt du [--unit KB|MB|GB]` (alias: `wt disk`) — disk space used by each
+  worktree, largest first, plus a total. Sizes count the working files (the
+  shared repository database in `.git` isn't attributed to any worktree);
+  by default each row picks a readable unit, `--unit` forces one.
 - `wt config` — print the config file location (stderr) and its content
   (stdout, so `wt config | jq` works). Prints the built-in defaults if no
   file exists, and fails loudly if the file is invalid.
@@ -76,7 +83,8 @@ explicit `$WT_CONFIG` path is an error.
       "default_base": "develop",
       "branch_prefix": "team",
       "prefix_separator": "-",
-      "copy_hooks": true
+      "copy_hooks": true,
+      "copy_files": [".env*", "config/local.json"]
     }
   ]
 }
@@ -104,6 +112,13 @@ explicit `$WT_CONFIG` path is an error.
   — git already shares it across all worktrees, and wt says so instead of
   copying. `--copy-hooks` / `--no-copy-hooks` override the config per
   invocation.
+- `copy_files` — untracked files to copy into each new worktree, as paths or
+  globs relative to the main worktree (`.env*`, `config/local.json`). A
+  matched directory copies recursively; permissions are preserved; a pattern
+  that matches nothing prints a note. A repo entry's list *replaces* the
+  global one (it doesn't append), and an explicit `[]` turns copying off for
+  that repo. `--copy-file` adds one-off entries; `--no-copy-files` skips the
+  config list.
 - `repos` — per-repository overrides, explained below.
 
 Unknown keys are rejected so typos fail loudly.
@@ -122,7 +137,7 @@ top-level ones:
 - `name` (optional) — what `{repo}` expands to in `worktree_dir` templates
   for this repo. Default: the directory basename of the main worktree.
 - any of the settings fields above: `worktree_dir`, `default_base`,
-  `branch_prefix`, `prefix_separator`, `copy_hooks`.
+  `branch_prefix`, `prefix_separator`, `copy_hooks`, `copy_files`.
 
 Settings resolve in three layers, field by field:
 

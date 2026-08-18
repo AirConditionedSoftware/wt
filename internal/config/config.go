@@ -40,6 +40,10 @@ type Settings struct {
 	// husky's .husky); plain .git/hooks is already shared by all worktrees.
 	// A pointer so a per-repo false can override a global true.
 	CopyHooks *bool `json:"copy_hooks,omitempty"`
+	// CopyFiles are paths or globs, relative to the main worktree, of
+	// untracked files (e.g. ".env") to copy into newly created worktrees.
+	// A repo entry's list replaces the global one; [] disables copying.
+	CopyFiles []string `json:"copy_files,omitempty"`
 }
 
 // RepoConfig is one repos entry: settings for the repository whose main
@@ -136,6 +140,9 @@ func (s *Settings) merge(over Settings) {
 	}
 	if over.CopyHooks != nil {
 		s.CopyHooks = over.CopyHooks
+	}
+	if over.CopyFiles != nil {
+		s.CopyFiles = over.CopyFiles
 	}
 }
 

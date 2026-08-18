@@ -73,8 +73,9 @@ func TestLoadAndFor(t *testing.T) {
   "default_base": "main",
   "branch_prefix": "peter",
   "copy_hooks": true,
+  "copy_files": [".env"],
   "repos": [
-    {"name": "myapp", "path": "/code/myapp", "worktree_dir": "/special/{branch}", "default_base": "develop", "branch_prefix": "team", "prefix_separator": "_", "copy_hooks": false},
+    {"name": "myapp", "path": "/code/myapp", "worktree_dir": "/special/{branch}", "default_base": "develop", "branch_prefix": "team", "prefix_separator": "_", "copy_hooks": false, "copy_files": []},
     {"path": "/code/partial", "default_base": "trunk"}
   ]
 }`
@@ -92,9 +93,9 @@ func TestLoadAndFor(t *testing.T) {
 		want     Settings
 		wantName string
 	}{
-		{"/code/myapp", Settings{WorktreeDir: "/special/{branch}", DefaultBase: "develop", BranchPrefix: "team", PrefixSeparator: "_", CopyHooks: boolPtr(false)}, "myapp"},
-		{"/code/partial", Settings{WorktreeDir: "/global/{repo}/{branch}", DefaultBase: "trunk", BranchPrefix: "peter", CopyHooks: boolPtr(true)}, ""},
-		{"/code/unlisted", Settings{WorktreeDir: "/global/{repo}/{branch}", DefaultBase: "main", BranchPrefix: "peter", CopyHooks: boolPtr(true)}, ""},
+		{"/code/myapp", Settings{WorktreeDir: "/special/{branch}", DefaultBase: "develop", BranchPrefix: "team", PrefixSeparator: "_", CopyHooks: boolPtr(false), CopyFiles: []string{}}, "myapp"},
+		{"/code/partial", Settings{WorktreeDir: "/global/{repo}/{branch}", DefaultBase: "trunk", BranchPrefix: "peter", CopyHooks: boolPtr(true), CopyFiles: []string{".env"}}, ""},
+		{"/code/unlisted", Settings{WorktreeDir: "/global/{repo}/{branch}", DefaultBase: "main", BranchPrefix: "peter", CopyHooks: boolPtr(true), CopyFiles: []string{".env"}}, ""},
 	}
 	for _, tt := range tests {
 		got, name := cfg.ForPath(tt.path)
@@ -107,6 +108,9 @@ func TestLoadAndFor(t *testing.T) {
 	}
 	if s, _ := cfg.ForPath("/code/unlisted"); !s.CopyHooksEnabled() {
 		t.Error("unlisted repo should inherit the global copy_hooks=true")
+	}
+	if s, _ := cfg.ForPath("/code/myapp"); len(s.CopyFiles) != 0 {
+		t.Errorf("myapp copy_files=[] should clear the inherited list, got %v", s.CopyFiles)
 	}
 }
 
