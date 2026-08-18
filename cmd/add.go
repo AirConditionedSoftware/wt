@@ -208,8 +208,20 @@ func writeWorkspaceFile(worktreePath string, settings config.Settings, repo, bra
 	if wsPath == "" {
 		return "", fmt.Errorf("cannot derive a workspace file name for %s", worktreePath)
 	}
+	folders := []map[string]string{{"path": worktreePath}}
+	for _, wp := range settings.WorkspacePaths {
+		p, err := config.ExpandTilde(wp.Path)
+		if err != nil {
+			return "", err
+		}
+		entry := map[string]string{"path": p}
+		if wp.Name != "" {
+			entry["name"] = wp.Name
+		}
+		folders = append(folders, entry)
+	}
 	ws := map[string]any{
-		"folders":  []map[string]string{{"path": worktreePath}},
+		"folders":  folders,
 		"settings": map[string]string{"window.title": title},
 	}
 	data, err := json.MarshalIndent(ws, "", "  ")

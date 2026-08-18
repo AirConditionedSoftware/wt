@@ -600,7 +600,8 @@ func TestEndToEnd(t *testing.T) {
 		cfgVS := filepath.Join(work, "wt-vscode.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
-  "repos": [{"path": "` + repo + `", "vscode_workspace_file": true, "vscode_workspace_prefix": "acs-", "vscode_window_title": "myapp — ${activeEditorShort}"}]
+  "repos": [{"path": "` + repo + `", "vscode_workspace_file": true, "vscode_workspace_prefix": "acs-", "vscode_window_title": "myapp — ${activeEditorShort}",
+    "workspace_paths": [{"name": "docs", "path": "~/notes"}, {"path": "/shared/lib"}]}]
 }`
 		if err := os.WriteFile(cfgVS, []byte(cfgJSON), 0o644); err != nil {
 			t.Fatal(err)
@@ -616,6 +617,7 @@ func TestEndToEnd(t *testing.T) {
 		}
 		var ws struct {
 			Folders []struct {
+				Name string `json:"name"`
 				Path string `json:"path"`
 			} `json:"folders"`
 			Settings map[string]string `json:"settings"`
@@ -623,8 +625,14 @@ func TestEndToEnd(t *testing.T) {
 		if err := json.Unmarshal(data, &ws); err != nil {
 			t.Fatalf("workspace file is not valid JSON: %v\n%s", err, data)
 		}
-		if len(ws.Folders) != 1 || ws.Folders[0].Path != out {
-			t.Errorf("folders = %+v; want one entry with path %q", ws.Folders, out)
+		if len(ws.Folders) != 3 || ws.Folders[0].Path != out {
+			t.Fatalf("folders = %+v; want worktree plus two workspace_paths entries", ws.Folders)
+		}
+		if ws.Folders[1].Name != "docs" || ws.Folders[1].Path != filepath.Join(home, "notes") {
+			t.Errorf("folders[1] = %+v; want name docs and ~ expanded to %s/notes", ws.Folders[1], home)
+		}
+		if ws.Folders[2].Name != "" || ws.Folders[2].Path != "/shared/lib" {
+			t.Errorf("folders[2] = %+v; want nameless /shared/lib passed through", ws.Folders[2])
 		}
 		if got := ws.Settings["window.title"]; got != "myapp — ${activeEditorShort}" {
 			t.Errorf("window.title = %q; want the configured value verbatim", got)

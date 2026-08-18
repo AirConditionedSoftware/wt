@@ -103,7 +103,11 @@ explicit `$WT_CONFIG` path is an error.
       "vscode_open": true,
       "vscode_workspace_file": true,
       "vscode_workspace_prefix": "acs-",
-      "vscode_window_title": "myapp — ${activeEditorShort}"
+      "vscode_window_title": "myapp — ${activeEditorShort}",
+      "workspace_paths": [
+        { "name": "docs", "path": "~/notes/myapp" },
+        { "path": "~/code/shared-lib" }
+      ]
     }
   ]
 }
@@ -156,6 +160,12 @@ explicit `$WT_CONFIG` path is an error.
   workspace file, taken **verbatim**, so VS Code title variables like
   `${activeEditorShort}` or `${dirty}` pass straight through. Default: the
   repo name.
+- `workspace_paths` — extra folders to include in generated workspace files,
+  as `{name, path}` objects (`name` is the display name in VS Code and
+  optional; `path` is required, with `~` expanding to your home directory).
+  They're appended to the `folders` array after the worktree itself, so the
+  workspace spans multiple folders. A repo entry's list replaces the global
+  one.
 - `repos` — per-repository overrides, explained below.
 
 Unknown keys are rejected so typos fail loudly.
@@ -174,8 +184,8 @@ top-level ones:
 - `name` (optional) — what `{repo}` expands to in `worktree_dir` templates
   for this repo. Default: the directory basename of the main worktree.
 - any of the settings fields above: `worktree_dir`, `default_base`,
-  `branch_prefix`, `prefix_separator`, `copy_hooks`, `copy_files`, and the
-  `vscode_*` fields.
+  `branch_prefix`, `prefix_separator`, `copy_hooks`, `copy_files`,
+  `workspace_paths`, and the `vscode_*` fields.
 
 Settings resolve in three layers, field by field:
 

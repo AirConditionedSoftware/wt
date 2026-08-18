@@ -55,6 +55,19 @@ type Settings struct {
 	// settings["window.title"], so VS Code title variables like
 	// ${activeEditorShort} pass through. Empty means the repo name.
 	VSCodeWindowTitle string `json:"vscode_window_title,omitempty"`
+	// WorkspacePaths are extra folders added to generated .code-workspace
+	// files after the worktree itself. A repo entry's list replaces the
+	// global one.
+	WorkspacePaths []WorkspacePath `json:"workspace_paths,omitempty"`
+}
+
+// WorkspacePath is one extra folder for generated .code-workspace files.
+type WorkspacePath struct {
+	// Name is the folder's display name in VS Code. Optional.
+	Name string `json:"name,omitempty"`
+	// Path is the folder's location; a leading ~ expands to the home
+	// directory, anything else is written as given.
+	Path string `json:"path"`
 }
 
 // RepoConfig is one repos entry: settings for the repository whose main
@@ -110,12 +123,27 @@ func Load() (*File, error) {
 	if err := dec.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("config %s: %w", path, err)
 	}
+	if err := validateWorkspacePaths(path, "", cfg.WorkspacePaths); err != nil {
+		return nil, err
+	}
 	for i, r := range cfg.Repos {
 		if r.Path == "" {
 			return nil, fmt.Errorf("config %s: repos[%d] is missing \"path\"", path, i)
 		}
+		if err := validateWorkspacePaths(path, fmt.Sprintf("repos[%d] ", i), r.WorkspacePaths); err != nil {
+			return nil, err
+		}
 	}
 	return &cfg, nil
+}
+
+func validateWorkspacePaths(cfgPath, where string, wps []WorkspacePath) error {
+	for i, wp := range wps {
+		if wp.Path == "" {
+			return fmt.Errorf("config %s: %sworkspace_paths[%d] is missing \"path\"", cfgPath, where, i)
+		}
+	}
+	return nil
 }
 
 // ForPath returns the effective settings for the repository whose main
@@ -167,6 +195,9 @@ func (s *Settings) merge(over Settings) {
 	if over.VSCodeWindowTitle != "" {
 		s.VSCodeWindowTitle = over.VSCodeWindowTitle
 	}
+	if over.WorkspacePaths != nil {
+		s.WorkspacePaths = over.WorkspacePaths
+	}
 }
 
 // CopyHooksEnabled reports whether copy_hooks is set and true.
@@ -204,7 +235,7 @@ func (s Settings) WorktreePath(repo, branch string) (string, error) {
 	p := s.WorktreeDir
 	p = strings.ReplaceAll(p, "{repo}", repo)
 	p = strings.ReplaceAll(p, "{branch}", SanitizeBranch(branch))
-	p, err := expandTilde(p)
+	p, err := ExpandTilde(p)
 	if err != nil {
 		return "", err
 	}
@@ -216,7 +247,7 @@ func SanitizeBranch(branch string) string {
 	return strings.ReplaceAll(branch, "/", "-")
 }
 
-func expandTilde(p string) (string, error) {
+func ExpandTilde(p string) (string, error) {
 	if p == "~" || strings.HasPrefix(p, "~/") {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -230,7 +261,7 @@ func expandTilde(p string) (string, error) {
 // normalizePath makes paths comparable: ~ expanded, absolute, symlinks
 // resolved. Best-effort — a path that can't be resolved is used as-is.
 func normalizePath(p string) string {
-	if e, err := expandTilde(p); err == nil {
+	if e, err := ExpandTilde(p); err == nil {
 		p = e
 	}
 	if abs, err := filepath.Abs(p); err == nil {

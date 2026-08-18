@@ -75,7 +75,7 @@ func TestLoadAndFor(t *testing.T) {
   "copy_hooks": true,
   "copy_files": [".env"],
   "repos": [
-    {"name": "myapp", "path": "/code/myapp", "worktree_dir": "/special/{branch}", "default_base": "develop", "branch_prefix": "team", "prefix_separator": "_", "copy_hooks": false, "copy_files": [], "vscode_open": true, "vscode_workspace_file": true, "vscode_workspace_prefix": "acs-", "vscode_window_title": "myapp ${activeEditorShort}"},
+    {"name": "myapp", "path": "/code/myapp", "worktree_dir": "/special/{branch}", "default_base": "develop", "branch_prefix": "team", "prefix_separator": "_", "copy_hooks": false, "copy_files": [], "vscode_open": true, "vscode_workspace_file": true, "vscode_workspace_prefix": "acs-", "vscode_window_title": "myapp ${activeEditorShort}", "workspace_paths": [{"name": "docs", "path": "~/notes/myapp"}, {"path": "/shared/lib"}]},
     {"path": "/code/partial", "default_base": "trunk"}
   ]
 }`
@@ -93,7 +93,7 @@ func TestLoadAndFor(t *testing.T) {
 		want     Settings
 		wantName string
 	}{
-		{"/code/myapp", Settings{WorktreeDir: "/special/{branch}", DefaultBase: "develop", BranchPrefix: "team", PrefixSeparator: "_", CopyHooks: boolPtr(false), CopyFiles: []string{}, VSCodeOpen: boolPtr(true), VSCodeWorkspaceFile: boolPtr(true), VSCodeWorkspacePrefix: "acs-", VSCodeWindowTitle: "myapp ${activeEditorShort}"}, "myapp"},
+		{"/code/myapp", Settings{WorktreeDir: "/special/{branch}", DefaultBase: "develop", BranchPrefix: "team", PrefixSeparator: "_", CopyHooks: boolPtr(false), CopyFiles: []string{}, VSCodeOpen: boolPtr(true), VSCodeWorkspaceFile: boolPtr(true), VSCodeWorkspacePrefix: "acs-", VSCodeWindowTitle: "myapp ${activeEditorShort}", WorkspacePaths: []WorkspacePath{{Name: "docs", Path: "~/notes/myapp"}, {Path: "/shared/lib"}}}, "myapp"},
 		{"/code/partial", Settings{WorktreeDir: "/global/{repo}/{branch}", DefaultBase: "trunk", BranchPrefix: "peter", CopyHooks: boolPtr(true), CopyFiles: []string{".env"}}, ""},
 		{"/code/unlisted", Settings{WorktreeDir: "/global/{repo}/{branch}", DefaultBase: "main", BranchPrefix: "peter", CopyHooks: boolPtr(true), CopyFiles: []string{".env"}}, ""},
 	}
@@ -125,6 +125,19 @@ func TestForPathBuiltinDefaults(t *testing.T) {
 	got, name := cfg.ForPath("/nowhere")
 	if got.WorktreeDir != DefaultWorktreeDir || got.DefaultBase != "" || name != "" {
 		t.Errorf("ForPath() on empty config = %+v, %q", got, name)
+	}
+}
+
+func TestLoadWorkspacePathMissingPathFails(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "wt.json")
+	content := `{"repos": [{"path": "/x", "workspace_paths": [{"name": "docs"}]}]}`
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(EnvVar, p)
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "workspace_paths") {
+		t.Errorf("Load() with pathless workspace_paths entry: err = %v; want missing-path error", err)
 	}
 }
 
