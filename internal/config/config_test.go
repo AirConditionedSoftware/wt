@@ -75,7 +75,7 @@ func TestLoadAndFor(t *testing.T) {
   "copy_hooks": true,
   "copy_files": [".env"],
   "repos": [
-    {"name": "myapp", "path": "/code/myapp", "worktree_dir": "/special/{branch}", "default_base": "develop", "branch_prefix": "team", "prefix_separator": "_", "copy_hooks": false, "copy_files": []},
+    {"name": "myapp", "path": "/code/myapp", "worktree_dir": "/special/{branch}", "default_base": "develop", "branch_prefix": "team", "prefix_separator": "_", "copy_hooks": false, "copy_files": [], "vscode_open": true, "vscode_workspace_file": true, "vscode_workspace_prefix": "acs-", "vscode_window_title": "myapp ${activeEditorShort}"},
     {"path": "/code/partial", "default_base": "trunk"}
   ]
 }`
@@ -93,7 +93,7 @@ func TestLoadAndFor(t *testing.T) {
 		want     Settings
 		wantName string
 	}{
-		{"/code/myapp", Settings{WorktreeDir: "/special/{branch}", DefaultBase: "develop", BranchPrefix: "team", PrefixSeparator: "_", CopyHooks: boolPtr(false), CopyFiles: []string{}}, "myapp"},
+		{"/code/myapp", Settings{WorktreeDir: "/special/{branch}", DefaultBase: "develop", BranchPrefix: "team", PrefixSeparator: "_", CopyHooks: boolPtr(false), CopyFiles: []string{}, VSCodeOpen: boolPtr(true), VSCodeWorkspaceFile: boolPtr(true), VSCodeWorkspacePrefix: "acs-", VSCodeWindowTitle: "myapp ${activeEditorShort}"}, "myapp"},
 		{"/code/partial", Settings{WorktreeDir: "/global/{repo}/{branch}", DefaultBase: "trunk", BranchPrefix: "peter", CopyHooks: boolPtr(true), CopyFiles: []string{".env"}}, ""},
 		{"/code/unlisted", Settings{WorktreeDir: "/global/{repo}/{branch}", DefaultBase: "main", BranchPrefix: "peter", CopyHooks: boolPtr(true), CopyFiles: []string{".env"}}, ""},
 	}
@@ -111,6 +111,12 @@ func TestLoadAndFor(t *testing.T) {
 	}
 	if s, _ := cfg.ForPath("/code/myapp"); len(s.CopyFiles) != 0 {
 		t.Errorf("myapp copy_files=[] should clear the inherited list, got %v", s.CopyFiles)
+	}
+	if s, _ := cfg.ForPath("/code/myapp"); !s.VSCodeOpenEnabled() || !s.VSCodeWorkspaceFileEnabled() {
+		t.Error("myapp should have vscode_open and vscode_workspace_file enabled")
+	}
+	if s, _ := cfg.ForPath("/code/unlisted"); s.VSCodeOpenEnabled() || s.VSCodeWorkspaceFileEnabled() {
+		t.Error("unlisted repo should not have vscode options enabled")
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/AirConditionedSoftware/wt/internal/config"
 	"github.com/AirConditionedSoftware/wt/internal/gitx"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -119,10 +120,31 @@ func removeInteractive() error {
 }
 
 func branchLabel(w gitx.Worktree) string {
-	if w.Branch != "" {
+	switch {
+	case w.Branch != "":
 		return w.Branch
+	case w.Bare:
+		return "(bare)"
+	default:
+		return "(detached)"
 	}
-	return "(detached)"
+}
+
+// findWorktree matches name against worktree branches first, then paths.
+func findWorktree(wts []gitx.Worktree, name string) *gitx.Worktree {
+	for i := range wts {
+		if wts[i].Branch == name {
+			return &wts[i]
+		}
+	}
+	if abs, err := filepath.Abs(name); err == nil {
+		for i := range wts {
+			if samePath(wts[i].Path, abs) {
+				return &wts[i]
+			}
+		}
+	}
+	return nil
 }
 
 func truncate(s string, n int) string {
@@ -139,23 +161,7 @@ func removeWorktree(name string) error {
 		return err
 	}
 
-	var target *gitx.Worktree
-	for i := range wts {
-		if wts[i].Branch == name {
-			target = &wts[i]
-			break
-		}
-	}
-	if target == nil {
-		if abs, err := filepath.Abs(name); err == nil {
-			for i := range wts {
-				if samePath(wts[i].Path, abs) {
-					target = &wts[i]
-					break
-				}
-			}
-		}
-	}
+	target := findWorktree(wts, name)
 	if target == nil {
 		return fmt.Errorf("no worktree found for %q (see wt list)", name)
 	}
@@ -174,6 +180,19 @@ func removeWorktree(name string) error {
 	rmArgs = append(rmArgs, target.Path)
 	if _, err := gitx.Run(".", rmArgs...); err != nil {
 		return err
+	}
+
+	// The wt-generated workspace file lives next to the worktree; clean it
+	// up too so it doesn't orphan. Only when wt manages workspace files for
+	// this repo — never delete files wt didn't create.
+	if cfg, err := config.Load(); err == nil {
+		if settings, _ := cfg.ForPath(wts[0].Path); settings.VSCodeWorkspaceFileEnabled() {
+			if ws := workspaceFilePath(settings, target.Path, target.Branch); ws != "" {
+				if err := os.Remove(ws); err == nil {
+					fmt.Fprintf(os.Stderr, "Removed workspace file %s\n", ws)
+				}
+			}
+		}
 	}
 
 	if target.Branch != "" {

@@ -11,7 +11,7 @@ Creating worktree with new branch "feature/login" from main
 $ wt list
   BRANCH         PATH                                         HEAD      STATUS
 * main           /Users/you/code/myapp                        1a2b3c4d
-  feature-login  /Users/you/worktrees/myapp/feature-login     1a2b3c4d
+  feature/login  /Users/you/worktrees/myapp/feature-login     1a2b3c4d
 ```
 
 ## Install
@@ -24,7 +24,9 @@ install with Go:
 go install github.com/AirConditionedSoftware/wt@latest
 ```
 
-(A Homebrew tap is planned but not wired up yet.)
+(A Homebrew tap is planned but not wired up yet. While the repository is
+private, both routes need GitHub access — for `go install`, set
+`GOPRIVATE=github.com/AirConditionedSoftware` and authenticate git.)
 
 ## Usage
 
@@ -42,6 +44,22 @@ go install github.com/AirConditionedSoftware/wt@latest
   - `--copy-file <path-or-glob>` (repeatable) copies untracked files into
     the new worktree on top of the config's `copy_files` list;
     `--no-copy-files` skips the config list
+  - `--open` opens the new worktree in VS Code (the `.code-workspace` file
+    if one was written, the folder otherwise); `--no-open` overrides a
+    `vscode_open` config that enables it
+- `wt remove [branch...] [--force]` (aliases: `wt rm`, `wt -r`) — remove the
+  worktrees that have the given branches checked out; the branches themselves
+  are kept. Paths work too. With no arguments, an interactive picker lets you
+  select one or more worktrees to delete, showing each branch's last commit
+  and how long ago it was made. Refuses to remove the main worktree or the
+  one you're in; `--force`/`-f` passes through to git for dirty or locked
+  worktrees. When `vscode_workspace_file` is enabled, the wt-generated
+  `.code-workspace` sibling is deleted along with the worktree.
+- `wt open [branch]` — open a worktree in VS Code: with no argument an
+  interactive picker lists the worktrees, with a branch (or path) it opens
+  that one directly. Opens the wt-generated `.code-workspace` file when the
+  worktree has one, the folder otherwise. Only available when `vscode_open`
+  is enabled for the repo — without it the command tells you what to set.
 - `wt prune [--dry-run]` — clean up git's bookkeeping for stale worktrees,
   i.e. entries whose directories were deleted manually (shown as `prunable`
   in `wt list`). Prints what it prunes; branches and existing directories
@@ -49,17 +67,10 @@ go install github.com/AirConditionedSoftware/wt@latest
 - `wt du [--unit KB|MB|GB]` (alias: `wt disk`) — disk space used by each
   worktree, largest first, plus a total. Sizes count the working files (the
   shared repository database in `.git` isn't attributed to any worktree);
-  by default each row picks a readable unit, `--unit` forces one.
+  by default each row picks a readable unit, `--unit`/`-u` forces one.
 - `wt config` — print the config file location (stderr) and its content
   (stdout, so `wt config | jq` works). Prints the built-in defaults if no
   file exists, and fails loudly if the file is invalid.
-- `wt remove [branch...] [--force]` (aliases: `wt rm`, `wt -r`) — remove the
-  worktrees that have the given branches checked out; the branches themselves
-  are kept. Paths work too. With no arguments, an interactive picker lets you
-  select one or more worktrees to delete, showing each branch's last commit
-  and how long ago it was made. Refuses to remove the main worktree
-  or the one you're in; `--force`/`-f` passes through to git for dirty or
-  locked worktrees.
 
 `wt add` prints only the created path on stdout (everything else goes to
 stderr), so you can hop straight into a new worktree with a shell function:
@@ -88,7 +99,11 @@ explicit `$WT_CONFIG` path is an error.
       "branch_prefix": "team",
       "prefix_separator": "-",
       "copy_hooks": true,
-      "copy_files": [".env*", "config/local.json"]
+      "copy_files": [".env*", "config/local.json"],
+      "vscode_open": true,
+      "vscode_workspace_file": true,
+      "vscode_workspace_prefix": "acs-",
+      "vscode_window_title": "myapp — ${activeEditorShort}"
     }
   ]
 }
@@ -123,6 +138,24 @@ explicit `$WT_CONFIG` path is an error.
   global one (it doesn't append), and an explicit `[]` turns copying off for
   that repo. `--copy-file` adds one-off entries; `--no-copy-files` skips the
   config list.
+- `vscode_open` — open each new worktree in VS Code after creation (needs
+  the `code` CLI on PATH; a missing CLI is a warning, not a failure). Opens
+  the `.code-workspace` file when one is written, the folder otherwise.
+  `--open` / `--no-open` override per invocation. Also gates the `wt open`
+  command.
+- `vscode_workspace_file` — write a
+  `<vscode_workspace_prefix><branch>.code-workspace` file for each new
+  worktree, containing a `folders` array with the worktree path and
+  `settings["window.title"]`. The file is created *next to* the worktree
+  directory (a sibling, not inside it), so it never shows up as an untracked
+  file in git; `wt remove` cleans it up along with the worktree.
+- `vscode_workspace_prefix` — prefix for the workspace file's name, e.g.
+  `"acs-"` → `acs-fix-login.code-workspace`. Default: none (just the
+  sanitized branch name).
+- `vscode_window_title` — the `window.title` value written into the
+  workspace file, taken **verbatim**, so VS Code title variables like
+  `${activeEditorShort}` or `${dirty}` pass straight through. Default: the
+  repo name.
 - `repos` — per-repository overrides, explained below.
 
 Unknown keys are rejected so typos fail loudly.
@@ -141,7 +174,8 @@ top-level ones:
 - `name` (optional) — what `{repo}` expands to in `worktree_dir` templates
   for this repo. Default: the directory basename of the main worktree.
 - any of the settings fields above: `worktree_dir`, `default_base`,
-  `branch_prefix`, `prefix_separator`, `copy_hooks`, `copy_files`.
+  `branch_prefix`, `prefix_separator`, `copy_hooks`, `copy_files`, and the
+  `vscode_*` fields.
 
 Settings resolve in three layers, field by field:
 
@@ -161,11 +195,13 @@ to:
 | `branch_prefix`    | `team`                        | repo entry |
 | `prefix_separator` | `-`                           | repo entry |
 
-so the created branch is `team-fix-login`, while any other repo gets
+so the created branch is `team-fix-login` (and the copy and `vscode_*`
+behaviors come from the repo entry too), while any other repo gets
 `~/worktrees/{repo}/{branch}`, `main`, and `peter` with the default `/`
-separator (branches like `peter/fix-login`) from the top level. Note that an empty string in a repo entry does
-not clear an inherited value — it's treated the same as omitting the field
-(use `--no-prefix` to skip a prefix per invocation).
+separator (branches like `peter/fix-login`) from the top level. Note that
+an empty string in a repo entry does not clear an inherited value — it's
+treated the same as omitting the field (use `--no-prefix` to skip a prefix
+per invocation).
 
 Repos without an entry need no configuration at all; `repos` is purely
 opt-in per repo. An entry without a `path` is rejected when the config is

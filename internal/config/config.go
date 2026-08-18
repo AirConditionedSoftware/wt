@@ -44,6 +44,17 @@ type Settings struct {
 	// untracked files (e.g. ".env") to copy into newly created worktrees.
 	// A repo entry's list replaces the global one; [] disables copying.
 	CopyFiles []string `json:"copy_files,omitempty"`
+	// VSCodeOpen opens the worktree in VS Code after wt add creates it.
+	VSCodeOpen *bool `json:"vscode_open,omitempty"`
+	// VSCodeWorkspaceFile writes a .code-workspace file into each new
+	// worktree, named "<vscode_workspace_prefix><branch>.code-workspace".
+	VSCodeWorkspaceFile *bool `json:"vscode_workspace_file,omitempty"`
+	// VSCodeWorkspacePrefix is prepended to the workspace file's name.
+	VSCodeWorkspacePrefix string `json:"vscode_workspace_prefix,omitempty"`
+	// VSCodeWindowTitle is written verbatim as the workspace file's
+	// settings["window.title"], so VS Code title variables like
+	// ${activeEditorShort} pass through. Empty means the repo name.
+	VSCodeWindowTitle string `json:"vscode_window_title,omitempty"`
 }
 
 // RepoConfig is one repos entry: settings for the repository whose main
@@ -144,11 +155,34 @@ func (s *Settings) merge(over Settings) {
 	if over.CopyFiles != nil {
 		s.CopyFiles = over.CopyFiles
 	}
+	if over.VSCodeOpen != nil {
+		s.VSCodeOpen = over.VSCodeOpen
+	}
+	if over.VSCodeWorkspaceFile != nil {
+		s.VSCodeWorkspaceFile = over.VSCodeWorkspaceFile
+	}
+	if over.VSCodeWorkspacePrefix != "" {
+		s.VSCodeWorkspacePrefix = over.VSCodeWorkspacePrefix
+	}
+	if over.VSCodeWindowTitle != "" {
+		s.VSCodeWindowTitle = over.VSCodeWindowTitle
+	}
 }
 
 // CopyHooksEnabled reports whether copy_hooks is set and true.
 func (s Settings) CopyHooksEnabled() bool {
 	return s.CopyHooks != nil && *s.CopyHooks
+}
+
+// VSCodeOpenEnabled reports whether vscode_open is set and true.
+func (s Settings) VSCodeOpenEnabled() bool {
+	return s.VSCodeOpen != nil && *s.VSCodeOpen
+}
+
+// VSCodeWorkspaceFileEnabled reports whether vscode_workspace_file is set
+// and true.
+func (s Settings) VSCodeWorkspaceFileEnabled() bool {
+	return s.VSCodeWorkspaceFile != nil && *s.VSCodeWorkspaceFile
 }
 
 // EffectivePrefix returns BranchPrefix with the separator applied, e.g.

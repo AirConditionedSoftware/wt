@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -20,6 +22,8 @@ var (
 	addNoCopyHooks bool
 	addCopyFile    []string
 	addNoCopyFiles bool
+	addOpen        bool
+	addNoOpen      bool
 )
 
 type branchKind int
@@ -156,8 +160,78 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	openTarget := target
+	if settings.VSCodeWorkspaceFileEnabled() {
+		wsPath, err := writeWorkspaceFile(target, settings, repo, branch)
+		if err != nil {
+			return fmt.Errorf("worktree created at %s, but writing the workspace file failed: %w", target, err)
+		}
+		fmt.Fprintf(os.Stderr, "Wrote %s\n", wsPath)
+		openTarget = wsPath
+	}
+
+	wantOpen := settings.VSCodeOpenEnabled()
+	if addOpen {
+		wantOpen = true
+	}
+	if addNoOpen {
+		wantOpen = false
+	}
+	if wantOpen {
+		openInVSCode(openTarget)
+	}
+
 	fmt.Println(target)
 	return nil
+}
+
+// workspaceFilePath returns where the wt-generated .code-workspace for a
+// worktree lives: next to the worktree directory (a sibling, so it never
+// shows up as an untracked file inside it). "" for branchless worktrees.
+func workspaceFilePath(settings config.Settings, worktreePath, branch string) string {
+	if branch == "" {
+		return ""
+	}
+	name := settings.VSCodeWorkspacePrefix + config.SanitizeBranch(branch) + ".code-workspace"
+	return filepath.Join(filepath.Dir(worktreePath), name)
+}
+
+// writeWorkspaceFile writes a .code-workspace file next to the worktree with
+// a folders entry for it and window.title set to the configured value (taken
+// verbatim, VS Code title variables included) or the repo name.
+func writeWorkspaceFile(worktreePath string, settings config.Settings, repo, branch string) (string, error) {
+	title := settings.VSCodeWindowTitle
+	if title == "" {
+		title = repo
+	}
+	wsPath := workspaceFilePath(settings, worktreePath, branch)
+	if wsPath == "" {
+		return "", fmt.Errorf("cannot derive a workspace file name for %s", worktreePath)
+	}
+	ws := map[string]any{
+		"folders":  []map[string]string{{"path": worktreePath}},
+		"settings": map[string]string{"window.title": title},
+	}
+	data, err := json.MarshalIndent(ws, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return wsPath, os.WriteFile(wsPath, append(data, '\n'), 0o644)
+}
+
+// openInVSCode launches VS Code on path. Failing to open is a warning, not
+// an error — the worktree itself is fine.
+func openInVSCode(path string) {
+	codeBin, err := exec.LookPath("code")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, `VS Code CLI "code" not found on PATH; not opening`)
+		return
+	}
+	if out, err := exec.Command(codeBin, path).CombinedOutput(); err != nil {
+		fmt.Fprintf(os.Stderr, "opening in VS Code failed: %v\n%s", err, out)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "Opened %s in VS Code\n", path)
 }
 
 // copyFilesTo copies untracked files (e.g. .env) from the main worktree into
@@ -278,5 +352,7 @@ func init() {
 	addCmd.Flags().BoolVar(&addNoCopyHooks, "no-copy-hooks", false, "do not copy hooks even if the config enables copy_hooks")
 	addCmd.Flags().StringArrayVar(&addCopyFile, "copy-file", nil, "extra file or glob (relative to the main worktree) to copy into the new worktree; repeatable")
 	addCmd.Flags().BoolVar(&addNoCopyFiles, "no-copy-files", false, "skip the config's copy_files list")
+	addCmd.Flags().BoolVar(&addOpen, "open", false, "open the new worktree in VS Code")
+	addCmd.Flags().BoolVar(&addNoOpen, "no-open", false, "do not open in VS Code even if the config enables vscode_open")
 	rootCmd.AddCommand(addCmd)
 }

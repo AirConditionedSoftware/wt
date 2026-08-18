@@ -57,9 +57,14 @@ func git(t *testing.T, home, dir string, args ...string) string {
 
 func wt(t *testing.T, home, cfg, dir string, args ...string) (stdout, stderr string, err error) {
 	t.Helper()
+	return wtWithEnv(t, home, cfg, dir, nil, args...)
+}
+
+func wtWithEnv(t *testing.T, home, cfg, dir string, extraEnv []string, args ...string) (stdout, stderr string, err error) {
+	t.Helper()
 	cmd := exec.Command(wtBin, args...)
 	cmd.Dir = dir
-	cmd.Env = append(gitEnv(home), "WT_CONFIG="+cfg)
+	cmd.Env = append(append(gitEnv(home), "WT_CONFIG="+cfg), extraEnv...)
 	var so, se strings.Builder
 	cmd.Stdout = &so
 	cmd.Stderr = &se
@@ -588,6 +593,148 @@ func TestEndToEnd(t *testing.T) {
 		}
 		if !strings.Contains(stderr, "shared") {
 			t.Errorf("stderr = %q; want note that hooks are already shared", stderr)
+		}
+	})
+
+	t.Run("vscode workspace file with custom prefix and title", func(t *testing.T) {
+		cfgVS := filepath.Join(work, "wt-vscode.json")
+		cfgJSON := `{
+  "worktree_dir": "` + trees + `/{repo}/{branch}",
+  "repos": [{"path": "` + repo + `", "vscode_workspace_file": true, "vscode_workspace_prefix": "acs-", "vscode_window_title": "myapp — ${activeEditorShort}"}]
+}`
+		if err := os.WriteFile(cfgVS, []byte(cfgJSON), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		out, stderr, err := wt(t, home, cfgVS, repo, "add", "ws-test")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		wsPath := filepath.Join(filepath.Dir(out), "acs-ws-test.code-workspace")
+		data, err := os.ReadFile(wsPath)
+		if err != nil {
+			t.Fatalf("workspace file not written: %v", err)
+		}
+		var ws struct {
+			Folders []struct {
+				Path string `json:"path"`
+			} `json:"folders"`
+			Settings map[string]string `json:"settings"`
+		}
+		if err := json.Unmarshal(data, &ws); err != nil {
+			t.Fatalf("workspace file is not valid JSON: %v\n%s", err, data)
+		}
+		if len(ws.Folders) != 1 || ws.Folders[0].Path != out {
+			t.Errorf("folders = %+v; want one entry with path %q", ws.Folders, out)
+		}
+		if got := ws.Settings["window.title"]; got != "myapp — ${activeEditorShort}" {
+			t.Errorf("window.title = %q; want the configured value verbatim", got)
+		}
+		if _, err := os.Stat(filepath.Join(out, "acs-ws-test.code-workspace")); !os.IsNotExist(err) {
+			t.Error("workspace file must not be inside the worktree")
+		}
+
+		if _, stderr, err := wt(t, home, cfgVS, repo, "remove", "ws-test"); err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		if _, err := os.Stat(wsPath); !os.IsNotExist(err) {
+			t.Error("sibling workspace file should be cleaned up with the worktree")
+		}
+	})
+
+	t.Run("vscode workspace title defaults to repo name", func(t *testing.T) {
+		cfgVS := filepath.Join(work, "wt-vscode-default.json")
+		cfgJSON := `{
+  "worktree_dir": "` + trees + `/{repo}/{branch}",
+  "repos": [{"path": "` + repo + `", "vscode_workspace_file": true}]
+}`
+		if err := os.WriteFile(cfgVS, []byte(cfgJSON), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		out, _, err := wt(t, home, cfgVS, repo, "add", "ws-default")
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(filepath.Join(filepath.Dir(out), "ws-default.code-workspace"))
+		if err != nil {
+			t.Fatalf("workspace file not written: %v", err)
+		}
+		var ws struct {
+			Settings map[string]string `json:"settings"`
+		}
+		if err := json.Unmarshal(data, &ws); err != nil {
+			t.Fatal(err)
+		}
+		if got := ws.Settings["window.title"]; got != "myapp" {
+			t.Errorf("window.title = %q; want repo name \"myapp\"", got)
+		}
+	})
+
+	t.Run("open requires vscode_open", func(t *testing.T) {
+		_, stderr, err := wt(t, home, cfg, repo, "open", "main")
+		if err == nil {
+			t.Fatal("expected error when vscode_open is not enabled")
+		}
+		if !strings.Contains(stderr, "vscode_open") {
+			t.Errorf("stderr = %q; want note about enabling vscode_open", stderr)
+		}
+	})
+
+	t.Run("open launches code on the right target", func(t *testing.T) {
+		stub := t.TempDir()
+		codeLog := filepath.Join(stub, "code.log")
+		script := "#!/bin/sh\necho \"$@\" > " + codeLog + "\n"
+		if err := os.WriteFile(filepath.Join(stub, "code"), []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		stubPath := []string{"PATH=" + stub + string(os.PathListSeparator) + os.Getenv("PATH")}
+
+		cfgOpen := filepath.Join(work, "wt-open.json")
+		cfgJSON := `{
+  "worktree_dir": "` + trees + `/{repo}/{branch}",
+  "repos": [{"path": "` + repo + `", "vscode_open": true, "vscode_workspace_file": true, "vscode_workspace_prefix": "acs-"}]
+}`
+		if err := os.WriteFile(cfgOpen, []byte(cfgJSON), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		// git reports symlink-resolved paths (/private/var vs /var on
+		// macOS), so compare resolved forms.
+		resolve := func(p string) string {
+			if r, err := filepath.EvalSymlinks(p); err == nil {
+				return r
+			}
+			return p
+		}
+
+		// A worktree without a workspace file opens as a folder.
+		_, stderr, err := wtWithEnv(t, home, cfgOpen, repo, stubPath, "open", "feature/login")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		logged, err := os.ReadFile(codeLog)
+		if err != nil {
+			t.Fatalf("stub code was not invoked: %v", err)
+		}
+		wantFolder := filepath.Join(trees, "myapp", "feature-login")
+		if got := strings.TrimSpace(string(logged)); resolve(got) != resolve(wantFolder) {
+			t.Errorf("code opened %q; want the folder %q", got, wantFolder)
+		}
+
+		// A worktree with a wt-generated workspace file opens that file.
+		out, _, err := wtWithEnv(t, home, cfgOpen, repo, stubPath, "add", "--no-open", "open-ws")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := wtWithEnv(t, home, cfgOpen, repo, stubPath, "open", "open-ws"); err != nil {
+			t.Fatal(err)
+		}
+		logged, err = os.ReadFile(codeLog)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantWS := filepath.Join(filepath.Dir(out), "acs-open-ws.code-workspace")
+		if got := strings.TrimSpace(string(logged)); resolve(got) != resolve(wantWS) {
+			t.Errorf("code opened %q; want the workspace file %q", got, wantWS)
 		}
 	})
 
