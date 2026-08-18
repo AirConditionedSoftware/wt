@@ -233,9 +233,12 @@ porcelain output is a stable interface).
 ## Releasing
 
 Releases are automated with [goreleaser](https://goreleaser.com) via GitHub
-Actions: push a tag matching `v*` and the workflow runs the tests, builds
-darwin/linux binaries for amd64/arm64, and publishes a GitHub release with
-the archives. Validate the config locally with
+Actions. Every push to `main` runs the tests, bumps the patch version from
+the latest `v*` tag (`v0.2.0` → `v0.2.1`), pushes the new tag, and publishes
+a GitHub release with darwin/linux binaries for amd64/arm64. For a minor or
+major bump, push a tag yourself (`git tag v0.3.0 && git push origin main
+v0.3.0`) — the workflow releases exactly that version and later `main`
+pushes continue from it. Validate the goreleaser config locally with
 `goreleaser release --snapshot --clean`.
 
 Homebrew distribution (a tap plus a goreleaser-published cask) is planned
