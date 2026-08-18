@@ -295,8 +295,12 @@ func TestEndToEnd(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(out, "untracked.txt"), []byte("x\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		if _, _, err := wt(t, home, cfg, repo, "remove", "dirty"); err == nil {
+		_, stderr, err := wt(t, home, cfg, repo, "remove", "dirty")
+		if err == nil {
 			t.Fatal("expected error removing a dirty worktree without --force")
+		}
+		if !strings.Contains(stderr, "modified or untracked") || !strings.Contains(stderr, "--force") {
+			t.Errorf("stderr = %q; want dirty-worktree message pointing at --force", stderr)
 		}
 		if _, stderr, err := wt(t, home, cfg, repo, "remove", "--force", "dirty"); err != nil {
 			t.Fatalf("remove --force: %v\n%s", err, stderr)

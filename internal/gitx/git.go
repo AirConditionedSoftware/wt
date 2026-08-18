@@ -53,6 +53,16 @@ func LocalBranchExists(dir, branch string) bool {
 	return err == nil
 }
 
+// IsDirty reports whether the worktree at dir has modified or untracked
+// files.
+func IsDirty(dir string) (bool, error) {
+	out, err := Run(dir, "status", "--porcelain")
+	if err != nil {
+		return false, err
+	}
+	return out != "", nil
+}
+
 // CommitInfo describes a commit for display.
 type CommitInfo struct {
 	ShortHash string

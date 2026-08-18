@@ -119,6 +119,27 @@ func removeInteractive() error {
 	return nil
 }
 
+// confirmForceRemoval asks whether a dirty worktree should be removed
+// anyway. Prompted per worktree, so multi-removals decide each one.
+func confirmForceRemoval(w gitx.Worktree) (bool, error) {
+	ok := false
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().
+			Title(fmt.Sprintf("%s has modified or untracked files. Remove anyway?", branchLabel(w))).
+			Description(w.Path).
+			Affirmative("Force remove").
+			Negative("Skip").
+			Value(&ok),
+	))
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			return false, errors.New("aborted")
+		}
+		return false, err
+	}
+	return ok, nil
+}
+
 func branchLabel(w gitx.Worktree) string {
 	switch {
 	case w.Branch != "":
@@ -173,8 +194,28 @@ func removeWorktree(name string) error {
 		return fmt.Errorf("cannot remove the worktree you are in; cd out of %s first", target.Path)
 	}
 
+	force := removeForce
+	if !force {
+		// A dirty-worktree check failure (e.g. the directory is gone) just
+		// means there is nothing to warn about; let git decide below.
+		if dirty, err := gitx.IsDirty(target.Path); err == nil && dirty {
+			if !term.IsTerminal(int(os.Stdin.Fd())) {
+				return fmt.Errorf("worktree %s has modified or untracked files; re-run with --force", target.Path)
+			}
+			ok, err := confirmForceRemoval(*target)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				fmt.Fprintf(os.Stderr, "Skipped %s\n", target.Path)
+				return nil
+			}
+			force = true
+		}
+	}
+
 	rmArgs := []string{"worktree", "remove"}
-	if removeForce {
+	if force {
 		rmArgs = append(rmArgs, "--force")
 	}
 	rmArgs = append(rmArgs, target.Path)

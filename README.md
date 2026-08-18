@@ -52,9 +52,12 @@ private, both routes need GitHub access — for `go install`, set
   are kept. Paths work too. With no arguments, an interactive picker lets you
   select one or more worktrees to delete, showing each branch's last commit
   and how long ago it was made. Refuses to remove the main worktree or the
-  one you're in; `--force`/`-f` passes through to git for dirty or locked
-  worktrees. When `vscode_workspace_file` is enabled, the wt-generated
-  `.code-workspace` sibling is deleted along with the worktree.
+  one you're in. A worktree with modified or untracked files prompts you to
+  force or skip it — per worktree, so multi-removals decide each one;
+  `--force`/`-f` skips the prompt, and non-interactive use errors and asks
+  for `--force` instead of hanging. When `vscode_workspace_file` is enabled,
+  the wt-generated `.code-workspace` sibling is deleted along with the
+  worktree.
 - `wt open [branch]` — open a worktree in VS Code: with no argument an
   interactive picker lists the worktrees, with a branch (or path) it opens
   that one directly. Opens the wt-generated `.code-workspace` file when the
