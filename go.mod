@@ -1,4 +1,4 @@
-module github.com/piskandar/wt
+module github.com/AirConditionedSoftware/wt
 
 go 1.25.5
 

@@ -102,4 +102,4 @@ Resolution order for the file path: `$WT_CONFIG` if set → `~/.wt/wt.json`. A m
 
 ## Deliberately deferred (future)
 
-`wt rm <branch>` / `wt prune`, copying files into new worktrees (e.g. `.env`), post-create hooks (`npm install`), interactive picker. The config schema and command structure leave room for all of these.
+`wt prune`, copying files into new worktrees (e.g. `.env`), post-create hooks (`npm install`), interactive picker. The config schema and command structure leave room for all of these. (`wt remove` was added after the initial build.)

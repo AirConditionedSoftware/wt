@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/piskandar/wt/internal/gitx"
+	"github.com/AirConditionedSoftware/wt/internal/gitx"
 	"github.com/spf13/cobra"
 )
 

@@ -176,4 +176,76 @@ func TestEndToEnd(t *testing.T) {
 			t.Error("expected error outside a git repository")
 		}
 	})
+
+	t.Run("remove worktree keeps branch", func(t *testing.T) {
+		out, stderr, err := wt(t, home, cfg, repo, "remove", "local-b")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		if out != "" {
+			t.Errorf("stdout = %q; want empty", out)
+		}
+		path := filepath.Join(trees, "myapp", "local-b")
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("worktree dir %s still exists", path)
+		}
+		git(t, home, repo, "rev-parse", "--verify", "refs/heads/local-b")
+	})
+
+	t.Run("remove via -r flag", func(t *testing.T) {
+		if _, stderr, err := wt(t, home, cfg, repo, "-r", "remote-only"); err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		path := filepath.Join(trees, "myapp", "remote-only")
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("worktree dir %s still exists", path)
+		}
+	})
+
+	t.Run("remove main worktree fails", func(t *testing.T) {
+		_, stderr, err := wt(t, home, cfg, repo, "remove", "main")
+		if err == nil {
+			t.Fatal("expected error removing the main worktree")
+		}
+		if !strings.Contains(stderr, "main worktree") {
+			t.Errorf("stderr = %q; want mention of main worktree", stderr)
+		}
+	})
+
+	t.Run("remove worktree you are in fails", func(t *testing.T) {
+		inside := filepath.Join(trees, "myapp", "feature-login")
+		_, stderr, err := wt(t, home, cfg, inside, "remove", "feature/login")
+		if err == nil {
+			t.Fatal("expected error removing the current worktree")
+		}
+		if !strings.Contains(stderr, "worktree you are in") {
+			t.Errorf("stderr = %q; want mention of current worktree", stderr)
+		}
+	})
+
+	t.Run("remove unknown branch fails", func(t *testing.T) {
+		_, stderr, err := wt(t, home, cfg, repo, "remove", "no-such-branch")
+		if err == nil {
+			t.Fatal("expected error for unknown worktree")
+		}
+		if !strings.Contains(stderr, "no worktree found") {
+			t.Errorf("stderr = %q; want no-worktree-found error", stderr)
+		}
+	})
+
+	t.Run("remove dirty worktree needs force", func(t *testing.T) {
+		out, _, err := wt(t, home, cfg, repo, "add", "dirty")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(out, "untracked.txt"), []byte("x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := wt(t, home, cfg, repo, "remove", "dirty"); err == nil {
+			t.Fatal("expected error removing a dirty worktree without --force")
+		}
+		if _, stderr, err := wt(t, home, cfg, repo, "remove", "--force", "dirty"); err != nil {
+			t.Fatalf("remove --force: %v\n%s", err, stderr)
+		}
+	})
 }

@@ -17,13 +17,13 @@ $ wt list
 ## Install
 
 ```sh
-brew install piskandar/tap/wt
+brew install AirConditionedSoftware/tap/wt
 ```
 
 Or with Go:
 
 ```sh
-go install github.com/piskandar/wt@latest
+go install github.com/AirConditionedSoftware/wt@latest
 ```
 
 ## Usage
@@ -36,6 +36,10 @@ go install github.com/piskandar/wt@latest
     once if the remote ref isn't known yet)
   - otherwise → new branch created from `--base`, the config's
     `default_base`, or the current HEAD
+- `wt remove <branch> [--force]` (aliases: `wt rm`, `wt -r`) — remove the
+  worktree that has the branch checked out; the branch itself is kept. A path
+  works too. Refuses to remove the main worktree or the one you're in;
+  `--force`/`-f` passes through to git for dirty or locked worktrees.
 
 `wt add` prints only the created path on stdout (everything else goes to
 stderr), so you can hop straight into a new worktree with a shell function:
