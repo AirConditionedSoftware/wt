@@ -35,11 +35,20 @@ go install github.com/AirConditionedSoftware/wt@latest
   - branch exists on `origin` → local branch created tracking it (fetches
     once if the remote ref isn't known yet)
   - otherwise → new branch created from `--base`, the config's
-    `default_base`, or the current HEAD
-- `wt remove <branch> [--force]` (aliases: `wt rm`, `wt -r`) — remove the
-  worktree that has the branch checked out; the branch itself is kept. A path
-  works too. Refuses to remove the main worktree or the one you're in;
-  `--force`/`-f` passes through to git for dirty or locked worktrees.
+    `default_base`, or the current HEAD — named with the config's
+    `branch_prefix` if one is set (`--no-prefix` skips it)
+  - `--copy-hooks` copies the repo's git hooks into the new worktree;
+    `--no-copy-hooks` overrides a `copy_hooks` config that enables it
+- `wt config` — print the config file location (stderr) and its content
+  (stdout, so `wt config | jq` works). Prints the built-in defaults if no
+  file exists, and fails loudly if the file is invalid.
+- `wt remove [branch...] [--force]` (aliases: `wt rm`, `wt -r`) — remove the
+  worktrees that have the given branches checked out; the branches themselves
+  are kept. Paths work too. With no arguments, an interactive picker lets you
+  select one or more worktrees to delete, showing each branch's last commit
+  and how long ago it was made. Refuses to remove the main worktree
+  or the one you're in; `--force`/`-f` passes through to git for dirty or
+  locked worktrees.
 
 `wt add` prints only the created path on stdout (everything else goes to
 stderr), so you can hop straight into a new worktree with a shell function:
@@ -58,12 +67,18 @@ explicit `$WT_CONFIG` path is an error.
 {
   "worktree_dir": "~/worktrees/{repo}/{branch}",
   "default_base": "main",
-  "repos": {
-    "myapp": {
+  "branch_prefix": "peter",
+  "repos": [
+    {
+      "name": "myapp",
+      "path": "~/code/myapp",
       "worktree_dir": "~/code/myapp-trees/{branch}",
-      "default_base": "develop"
+      "default_base": "develop",
+      "branch_prefix": "team",
+      "prefix_separator": "-",
+      "copy_hooks": true
     }
-  }
+  ]
 }
 ```
 
@@ -73,10 +88,69 @@ explicit `$WT_CONFIG` path is an error.
   expands to your home directory. Default: `~/worktrees/{repo}/{branch}`.
 - `default_base` — ref that brand-new branches start from. Default: current
   HEAD.
-- `repos` — per-repository overrides, keyed by repo name (`{repo}` as defined
-  above). A repo entry overrides the top-level values field by field.
+- `branch_prefix` — prefix for branch names that `wt add` creates, joined to
+  the name with `prefix_separator`: with `"branch_prefix": "peter"`,
+  `wt add fix-login` creates the branch `peter/fix-login`. A prefix that
+  already ends in the separator isn't doubled, so `"peter/"` works the same.
+  Branches that already exist — with or without the prefix — are used as-is,
+  and typing an already-prefixed name won't double-prefix it. Bypass for one
+  invocation with `--no-prefix`.
+- `prefix_separator` — what joins `branch_prefix` to the branch name.
+  Default: `/`. Set `"-"` for branches like `peter-fix-login`.
+- `copy_hooks` — copy the repo's git hooks into each new worktree. This
+  matters when `core.hooksPath` points inside the worktree (husky's
+  `.husky`, a `.githooks` dir): git resolves such a path per worktree, so
+  new worktrees silently lose the hooks. Plain `.git/hooks` needs no copying
+  — git already shares it across all worktrees, and wt says so instead of
+  copying. `--copy-hooks` / `--no-copy-hooks` override the config per
+  invocation.
+- `repos` — per-repository overrides, explained below.
 
 Unknown keys are rejected so typos fail loudly.
+
+### Per-repository overrides (`repos`)
+
+`repos` is an array of entries, each tying one repository — identified by
+the **filesystem path of its main worktree** — to settings that override the
+top-level ones:
+
+- `path` (required) — the path of the repo's main worktree, e.g.
+  `~/code/myapp`. Before comparing, `~` is expanded and symlinks are
+  resolved on both sides, and because wt finds the main worktree through
+  git, the entry applies no matter which of the repo's worktrees you run wt
+  from. The first matching entry wins.
+- `name` (optional) — what `{repo}` expands to in `worktree_dir` templates
+  for this repo. Default: the directory basename of the main worktree.
+- any of the settings fields above: `worktree_dir`, `default_base`,
+  `branch_prefix`, `prefix_separator`, `copy_hooks`.
+
+Settings resolve in three layers, field by field:
+
+1. built-in defaults, overlaid with
+2. the top-level fields in wt.json, overlaid with
+3. the `repos` entry whose `path` matches.
+
+An entry only needs the fields it wants to change; anything it omits falls
+through to the layer below. With the example config above, running
+`wt add fix-login` inside `~/code/myapp` (or any of its worktrees) resolves
+to:
+
+| field              | value                         | comes from |
+| ------------------ | ----------------------------- | ---------- |
+| `worktree_dir`     | `~/code/myapp-trees/{branch}` | repo entry |
+| `default_base`     | `develop`                     | repo entry |
+| `branch_prefix`    | `team`                        | repo entry |
+| `prefix_separator` | `-`                           | repo entry |
+
+so the created branch is `team-fix-login`, while any other repo gets
+`~/worktrees/{repo}/{branch}`, `main`, and `peter` with the default `/`
+separator (branches like `peter/fix-login`) from the top level. Note that an empty string in a repo entry does
+not clear an inherited value — it's treated the same as omitting the field
+(use `--no-prefix` to skip a prefix per invocation).
+
+Repos without an entry need no configuration at all; `repos` is purely
+opt-in per repo. An entry without a `path` is rejected when the config is
+loaded.
 
 ## Development
 

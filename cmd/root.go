@@ -19,10 +19,7 @@ create new ones in locations driven by ~/.wt/wt.json (or $WT_CONFIG).`,
 	Args:          cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if rootRemove {
-			if len(args) != 1 {
-				return fmt.Errorf("-r requires exactly one branch argument")
-			}
-			return removeWorktree(args[0])
+			return runRemove(args)
 		}
 		if len(args) > 0 {
 			return fmt.Errorf("unknown command %q for \"wt\"", args[0])
@@ -32,7 +29,7 @@ create new ones in locations driven by ~/.wt/wt.json (or $WT_CONFIG).`,
 }
 
 func init() {
-	rootCmd.Flags().BoolVarP(&rootRemove, "remove", "r", false, "remove the worktree for the given branch (shorthand for wt remove)")
+	rootCmd.Flags().BoolVarP(&rootRemove, "remove", "r", false, "remove worktrees (shorthand for wt remove); with no branch, select interactively")
 	rootCmd.Flags().BoolVarP(&removeForce, "force", "f", false, "with -r: remove even if the worktree is dirty or locked")
 }
 

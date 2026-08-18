@@ -3,9 +3,12 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
+
+func boolPtr(b bool) *bool { return &b }
 
 func TestPathExplicit(t *testing.T) {
 	t.Setenv(EnvVar, "/somewhere/custom.json")
@@ -68,10 +71,12 @@ func TestLoadAndFor(t *testing.T) {
 	content := `{
   "worktree_dir": "/global/{repo}/{branch}",
   "default_base": "main",
-  "repos": {
-    "myapp": {"worktree_dir": "/special/{branch}", "default_base": "develop"},
-    "partial": {"default_base": "trunk"}
-  }
+  "branch_prefix": "peter",
+  "copy_hooks": true,
+  "repos": [
+    {"name": "myapp", "path": "/code/myapp", "worktree_dir": "/special/{branch}", "default_base": "develop", "branch_prefix": "team", "prefix_separator": "_", "copy_hooks": false},
+    {"path": "/code/partial", "default_base": "trunk"}
+  ]
 }`
 	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
@@ -83,25 +88,65 @@ func TestLoadAndFor(t *testing.T) {
 	}
 
 	tests := []struct {
-		repo string
-		want Settings
+		path     string
+		want     Settings
+		wantName string
 	}{
-		{"myapp", Settings{WorktreeDir: "/special/{branch}", DefaultBase: "develop"}},
-		{"partial", Settings{WorktreeDir: "/global/{repo}/{branch}", DefaultBase: "trunk"}},
-		{"unlisted", Settings{WorktreeDir: "/global/{repo}/{branch}", DefaultBase: "main"}},
+		{"/code/myapp", Settings{WorktreeDir: "/special/{branch}", DefaultBase: "develop", BranchPrefix: "team", PrefixSeparator: "_", CopyHooks: boolPtr(false)}, "myapp"},
+		{"/code/partial", Settings{WorktreeDir: "/global/{repo}/{branch}", DefaultBase: "trunk", BranchPrefix: "peter", CopyHooks: boolPtr(true)}, ""},
+		{"/code/unlisted", Settings{WorktreeDir: "/global/{repo}/{branch}", DefaultBase: "main", BranchPrefix: "peter", CopyHooks: boolPtr(true)}, ""},
 	}
 	for _, tt := range tests {
-		if got := cfg.For(tt.repo); got != tt.want {
-			t.Errorf("For(%q) = %+v; want %+v", tt.repo, got, tt.want)
+		got, name := cfg.ForPath(tt.path)
+		if !reflect.DeepEqual(got, tt.want) || name != tt.wantName {
+			t.Errorf("ForPath(%q) = %+v, %q; want %+v, %q", tt.path, got, name, tt.want, tt.wantName)
 		}
+	}
+	if s, _ := cfg.ForPath("/code/myapp"); s.CopyHooksEnabled() {
+		t.Error("myapp copy_hooks=false should override the global true")
+	}
+	if s, _ := cfg.ForPath("/code/unlisted"); !s.CopyHooksEnabled() {
+		t.Error("unlisted repo should inherit the global copy_hooks=true")
 	}
 }
 
-func TestForBuiltinDefaults(t *testing.T) {
+func TestForPathBuiltinDefaults(t *testing.T) {
 	cfg := &File{}
-	got := cfg.For("anything")
-	if got.WorktreeDir != DefaultWorktreeDir || got.DefaultBase != "" {
-		t.Errorf("For() on empty config = %+v", got)
+	got, name := cfg.ForPath("/nowhere")
+	if got.WorktreeDir != DefaultWorktreeDir || got.DefaultBase != "" || name != "" {
+		t.Errorf("ForPath() on empty config = %+v, %q", got, name)
+	}
+}
+
+func TestLoadRepoMissingPathFails(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "wt.json")
+	if err := os.WriteFile(p, []byte(`{"repos": [{"name": "myapp"}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(EnvVar, p)
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "path") {
+		t.Errorf("Load() with pathless repos entry: err = %v; want missing-path error", err)
+	}
+}
+
+func TestEffectivePrefix(t *testing.T) {
+	tests := []struct {
+		prefix, sep, want string
+	}{
+		{"", "", ""},
+		{"", "-", ""},
+		{"peter", "", "peter/"},
+		{"peter/", "", "peter/"},
+		{"peter", "-", "peter-"},
+		{"peter-", "-", "peter-"},
+		{"team", "_", "team_"},
+	}
+	for _, tt := range tests {
+		s := Settings{BranchPrefix: tt.prefix, PrefixSeparator: tt.sep}
+		if got := s.EffectivePrefix(); got != tt.want {
+			t.Errorf("EffectivePrefix(prefix=%q, sep=%q) = %q; want %q", tt.prefix, tt.sep, got, tt.want)
+		}
 	}
 }
 
