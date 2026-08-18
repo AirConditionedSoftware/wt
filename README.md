@@ -42,6 +42,10 @@ go install github.com/AirConditionedSoftware/wt@latest
   - `--copy-file <path-or-glob>` (repeatable) copies untracked files into
     the new worktree on top of the config's `copy_files` list;
     `--no-copy-files` skips the config list
+- `wt prune [--dry-run]` — clean up git's bookkeeping for stale worktrees,
+  i.e. entries whose directories were deleted manually (shown as `prunable`
+  in `wt list`). Prints what it prunes; branches and existing directories
+  are untouched.
 - `wt du [--unit KB|MB|GB]` (alias: `wt disk`) — disk space used by each
   worktree, largest first, plus a total. Sizes count the working files (the
   shared repository database in `.git` isn't attributed to any worktree);

@@ -591,6 +591,47 @@ func TestEndToEnd(t *testing.T) {
 		}
 	})
 
+	t.Run("prune cleans up stale worktrees", func(t *testing.T) {
+		out, _, err := wt(t, home, cfg, repo, "add", "doomed")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.RemoveAll(out); err != nil {
+			t.Fatal(err)
+		}
+
+		_, stderr, err := wt(t, home, cfg, repo, "prune", "--dry-run")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		if !strings.Contains(stderr, "doomed") || !strings.Contains(stderr, "dry run") {
+			t.Errorf("dry-run stderr = %q; want the stale worktree listed", stderr)
+		}
+		if listOut, _, err := wt(t, home, cfg, repo, "list"); err != nil || !strings.Contains(listOut, "doomed") {
+			t.Errorf("dry run should not have pruned; list = %q, %v", listOut, err)
+		}
+
+		_, stderr, err = wt(t, home, cfg, repo, "prune")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		if !strings.Contains(stderr, "Pruned 1 stale worktree entry") {
+			t.Errorf("prune stderr = %q; want prune confirmation", stderr)
+		}
+		if listOut, _, err := wt(t, home, cfg, repo, "list"); err != nil || strings.Contains(listOut, "doomed") {
+			t.Errorf("stale worktree still listed after prune: %q, %v", listOut, err)
+		}
+		git(t, home, repo, "rev-parse", "--verify", "refs/heads/doomed")
+
+		_, stderr, err = wt(t, home, cfg, repo, "prune")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(stderr, "Nothing to prune") {
+			t.Errorf("second prune stderr = %q; want nothing to prune", stderr)
+		}
+	})
+
 	t.Run("repo branch prefix overrides global", func(t *testing.T) {
 		cfgRepoPrefix := filepath.Join(work, "wt-repo-prefix.json")
 		cfgJSON := `{
