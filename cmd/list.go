@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/AirConditionedSoftware/wt/internal/config"
 	"github.com/AirConditionedSoftware/wt/internal/gitx"
 	"github.com/spf13/cobra"
 )
@@ -23,6 +24,11 @@ var listCmd = &cobra.Command{
 		wts, err := gitx.ListWorktrees(".")
 		if err != nil {
 			return err
+		}
+		// Display preferences only — a broken config must not break list.
+		if cfg, err := config.Load(); err == nil {
+			s, _ := cfg.ForPath(wts[0].Path)
+			applyDisplayConfig(s)
 		}
 		if listJSON {
 			enc := json.NewEncoder(os.Stdout)
@@ -68,7 +74,7 @@ var listCmd = &cobra.Command{
 				style = ansiGreen
 			}
 			styles = append(styles, style)
-			fmt.Fprintf(tw, "%s %s\t%s\t%s\t%s\n", marker, branch, w.Path, head, strings.Join(status, ","))
+			fmt.Fprintf(tw, "%s %s\t%s\t%s\t%s\n", marker, branch, displayPath(w.Path), head, strings.Join(status, ","))
 		}
 		if err := tw.Flush(); err != nil {
 			return err

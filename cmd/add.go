@@ -69,6 +69,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	if repo == "" {
 		repo = filepath.Base(mainPath)
 	}
+	applyDisplayConfig(settings)
 
 	prefix := settings.EffectivePrefix()
 	if addNoPrefix || (prefix != "" && strings.HasPrefix(arg, prefix)) {
@@ -94,7 +95,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 
 	for _, w := range wts {
 		if w.Branch == branch {
-			return fmt.Errorf("branch %q is already checked out at %s", branch, w.Path)
+			return fmt.Errorf("branch %q is already checked out at %s", branch, displayPath(w.Path))
 		}
 	}
 
@@ -108,7 +109,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		target = abs
 	}
 	if _, err := os.Stat(target); err == nil {
-		return fmt.Errorf("target directory already exists: %s", target)
+		return fmt.Errorf("target directory already exists: %s", displayPath(target))
 	}
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		return err
@@ -145,7 +146,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	}
 	if wantHooks {
 		if err := copyHooksTo(mainPath, target); err != nil {
-			return fmt.Errorf("worktree created at %s, but copying hooks failed: %w", target, err)
+			return fmt.Errorf("worktree created at %s, but copying hooks failed: %w", displayPath(target), err)
 		}
 	}
 
@@ -156,7 +157,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	patterns = append(append([]string{}, patterns...), addCopyFile...)
 	if len(patterns) > 0 {
 		if err := copyFilesTo(mainPath, target, patterns); err != nil {
-			return fmt.Errorf("worktree created at %s, but copying files failed: %w", target, err)
+			return fmt.Errorf("worktree created at %s, but copying files failed: %w", displayPath(target), err)
 		}
 	}
 
@@ -164,9 +165,9 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	if settings.VSCodeWorkspaceFileEnabled() {
 		wsPath, err := writeWorkspaceFile(target, settings, repo, branch)
 		if err != nil {
-			return fmt.Errorf("worktree created at %s, but writing the workspace file failed: %w", target, err)
+			return fmt.Errorf("worktree created at %s, but writing the workspace file failed: %w", displayPath(target), err)
 		}
-		fmt.Fprintf(os.Stderr, "Wrote %s\n", wsPath)
+		fmt.Fprintf(os.Stderr, "Wrote %s\n", displayPath(wsPath))
 		openTarget = wsPath
 	}
 
@@ -206,7 +207,7 @@ func writeWorkspaceFile(worktreePath string, settings config.Settings, repo, bra
 	}
 	wsPath := workspaceFilePath(settings, worktreePath, branch)
 	if wsPath == "" {
-		return "", fmt.Errorf("cannot derive a workspace file name for %s", worktreePath)
+		return "", fmt.Errorf("cannot derive a workspace file name for %s", displayPath(worktreePath))
 	}
 	folders := []map[string]string{{"path": worktreePath}}
 	for _, wp := range settings.WorkspacePaths {
@@ -243,7 +244,7 @@ func openInVSCode(path string) {
 		fmt.Fprintf(os.Stderr, "opening in VS Code failed: %v\n%s", err, out)
 		return
 	}
-	fmt.Fprintf(os.Stderr, "Opened %s in VS Code\n", path)
+	fmt.Fprintf(os.Stderr, "Opened %s in VS Code\n", displayPath(path))
 }
 
 // copyFilesTo copies untracked files (e.g. .env) from the main worktree into
@@ -285,7 +286,7 @@ func copyFilesTo(mainPath, worktreePath string, patterns []string) error {
 		}
 	}
 	if copied > 0 {
-		fmt.Fprintf(os.Stderr, "Copied %d file(s) into %s\n", copied, worktreePath)
+		fmt.Fprintf(os.Stderr, "Copied %d file(s) into %s\n", copied, displayPath(worktreePath))
 	}
 	return nil
 }
@@ -305,17 +306,17 @@ func copyHooksTo(mainPath, worktreePath string) error {
 		return err
 	}
 	if samePath(src, dst) {
-		fmt.Fprintf(os.Stderr, "Hooks at %s are shared by all worktrees; nothing to copy\n", src)
+		fmt.Fprintf(os.Stderr, "Hooks at %s are shared by all worktrees; nothing to copy\n", displayPath(src))
 		return nil
 	}
 	if _, err := os.Stat(src); os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Hooks directory %s does not exist; nothing to copy\n", src)
+		fmt.Fprintf(os.Stderr, "Hooks directory %s does not exist; nothing to copy\n", displayPath(src))
 		return nil
 	}
 	if err := copyDir(src, dst); err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "Copied hooks to %s\n", dst)
+	fmt.Fprintf(os.Stderr, "Copied hooks to %s\n", displayPath(dst))
 	return nil
 }
 

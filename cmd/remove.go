@@ -126,7 +126,7 @@ func confirmForceRemoval(w gitx.Worktree) (bool, error) {
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewConfirm().
 			Title(fmt.Sprintf("%s has modified or untracked files. Remove anyway?", branchLabel(w))).
-			Description(w.Path).
+			Description(displayPath(w.Path)).
 			Affirmative("Force remove").
 			Negative("Skip").
 			Value(&ok),
@@ -182,16 +182,24 @@ func removeWorktree(name string) error {
 		return err
 	}
 
+	// Display preferences and (later) workspace-file cleanup; a broken
+	// config must not block removal.
+	cfg, cfgErr := config.Load()
+	if cfgErr == nil {
+		s, _ := cfg.ForPath(wts[0].Path)
+		applyDisplayConfig(s)
+	}
+
 	target := findWorktree(wts, name)
 	if target == nil {
 		return fmt.Errorf("no worktree found for %q (see wt list)", name)
 	}
 
 	if target.Path == wts[0].Path {
-		return fmt.Errorf("refusing to remove the main worktree at %s", target.Path)
+		return fmt.Errorf("refusing to remove the main worktree at %s", displayPath(target.Path))
 	}
 	if cur, err := gitx.Toplevel("."); err == nil && samePath(cur, target.Path) {
-		return fmt.Errorf("cannot remove the worktree you are in; cd out of %s first", target.Path)
+		return fmt.Errorf("cannot remove the worktree you are in; cd out of %s first", displayPath(target.Path))
 	}
 
 	force := removeForce
@@ -200,14 +208,14 @@ func removeWorktree(name string) error {
 		// means there is nothing to warn about; let git decide below.
 		if dirty, err := gitx.IsDirty(target.Path); err == nil && dirty {
 			if !term.IsTerminal(int(os.Stdin.Fd())) {
-				return fmt.Errorf("worktree %s has modified or untracked files; re-run with --force", target.Path)
+				return fmt.Errorf("worktree %s has modified or untracked files; re-run with --force", displayPath(target.Path))
 			}
 			ok, err := confirmForceRemoval(*target)
 			if err != nil {
 				return err
 			}
 			if !ok {
-				fmt.Fprintf(os.Stderr, "Skipped %s\n", target.Path)
+				fmt.Fprintf(os.Stderr, "Skipped %s\n", displayPath(target.Path))
 				return nil
 			}
 			force = true
@@ -226,20 +234,20 @@ func removeWorktree(name string) error {
 	// The wt-generated workspace file lives next to the worktree; clean it
 	// up too so it doesn't orphan. Only when wt manages workspace files for
 	// this repo — never delete files wt didn't create.
-	if cfg, err := config.Load(); err == nil {
+	if cfgErr == nil {
 		if settings, _ := cfg.ForPath(wts[0].Path); settings.VSCodeWorkspaceFileEnabled() {
 			if ws := workspaceFilePath(settings, target.Path, target.Branch); ws != "" {
 				if err := os.Remove(ws); err == nil {
-					fmt.Fprintf(os.Stderr, "Removed workspace file %s\n", ws)
+					fmt.Fprintf(os.Stderr, "Removed workspace file %s\n", displayPath(ws))
 				}
 			}
 		}
 	}
 
 	if target.Branch != "" {
-		fmt.Fprintf(os.Stderr, "Removed worktree %s (branch %q kept)\n", target.Path, target.Branch)
+		fmt.Fprintf(os.Stderr, "Removed worktree %s (branch %q kept)\n", displayPath(target.Path), target.Branch)
 	} else {
-		fmt.Fprintf(os.Stderr, "Removed worktree %s\n", target.Path)
+		fmt.Fprintf(os.Stderr, "Removed worktree %s\n", displayPath(target.Path))
 	}
 	return nil
 }

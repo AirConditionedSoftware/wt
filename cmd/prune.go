@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/AirConditionedSoftware/wt/internal/config"
 	"github.com/AirConditionedSoftware/wt/internal/gitx"
 	"github.com/spf13/cobra"
 )
@@ -21,6 +22,10 @@ have been deleted manually, shown as "prunable" in wt list. Only
 		wts, err := gitx.ListWorktrees(".")
 		if err != nil {
 			return err
+		}
+		if cfg, err := config.Load(); err == nil {
+			s, _ := cfg.ForPath(wts[0].Path)
+			applyDisplayConfig(s)
 		}
 		var stale []gitx.Worktree
 		for _, w := range wts {
@@ -42,7 +47,7 @@ have been deleted manually, shown as "prunable" in wt list. Only
 			if reason == "" {
 				reason = "stale"
 			}
-			fmt.Fprintf(os.Stderr, "%s  %s (%s)\n", label, w.Path, reason)
+			fmt.Fprintf(os.Stderr, "%s  %s (%s)\n", label, displayPath(w.Path), reason)
 		}
 
 		noun := "entries"

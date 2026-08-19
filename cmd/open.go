@@ -36,6 +36,7 @@ func runOpen(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	settings, _ := cfg.ForPath(wts[0].Path)
+	applyDisplayConfig(settings)
 	if !settings.VSCodeOpenEnabled() {
 		cfgPath, _, _ := config.Path()
 		return fmt.Errorf("vscode_open is not enabled for this repo; set \"vscode_open\": true (globally or in this repo's entry) in %s to use wt open", cfgPath)
