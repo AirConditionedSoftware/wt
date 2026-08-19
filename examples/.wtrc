@@ -1,0 +1,19 @@
+{
+  "name": "myapp",
+  "worktree_dir": "~/worktrees/{repo}/{branch}",
+  "default_base": "develop",
+  "branch_prefix": "team",
+  "prefix_separator": "-",
+  "copy_hooks": true,
+  "copy_files": [".env*", "config/local.json"],
+  "vscode_open": true,
+  "vscode_workspace_file": true,
+  "vscode_workspace_prefix": "myapp-",
+  "vscode_window_title": "myapp — ${activeEditorShort}${separator}${branchName}",
+  "workspace_paths": [
+    { "name": "docs", "path": "~/notes/myapp" },
+    { "path": "~/code/shared-lib" }
+  ],
+  "full_paths": false,
+  "post_create": ["npm ci"]
+}
