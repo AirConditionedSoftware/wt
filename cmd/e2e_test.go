@@ -800,6 +800,25 @@ func TestEndToEnd(t *testing.T) {
 		}
 	})
 
+	t.Run("completion", func(t *testing.T) {
+		out, _, err := wt(t, home, cfg, repo, "completion", "zsh")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "#compdef") {
+			t.Errorf("zsh completion script missing #compdef header:\n%.120s", out)
+		}
+		_, stderr, err := wt(t, home, cfg, repo, "completion")
+		if err == nil {
+			t.Error("wizard without a terminal should fail")
+		} else if !strings.Contains(stderr, "terminal") {
+			t.Errorf("stderr = %q; want terminal hint", stderr)
+		}
+		if _, _, err := wt(t, home, cfg, repo, "completion", "tcsh"); err == nil {
+			t.Error("unsupported shell should fail")
+		}
+	})
+
 	t.Run("prune cleans up stale worktrees", func(t *testing.T) {
 		out, _, err := wt(t, home, cfg, repo, "add", "doomed")
 		if err != nil {
