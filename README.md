@@ -1,5 +1,9 @@
 # wt
 
+[![release](https://img.shields.io/github/v/release/AirConditionedSoftware/wt)](https://github.com/AirConditionedSoftware/wt/releases)
+[![build](https://github.com/AirConditionedSoftware/wt/actions/workflows/release.yml/badge.svg)](https://github.com/AirConditionedSoftware/wt/actions/workflows/release.yml)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A small CLI for managing git worktrees. Worktree placement is driven by a JSON
 config file and can be overridden per repository.
 
@@ -24,9 +28,7 @@ install with Go:
 go install github.com/AirConditionedSoftware/wt@latest
 ```
 
-(A Homebrew tap is planned but not wired up yet. While the repository is
-private, both routes need GitHub access — for `go install`, set
-`GOPRIVATE=github.com/AirConditionedSoftware` and authenticate git.)
+(A Homebrew tap is planned but not wired up yet.)
 
 ## Usage
 
@@ -243,3 +245,14 @@ pushes continue from it. Validate the goreleaser config locally with
 
 Homebrew distribution (a tap plus a goreleaser-published cask) is planned
 but not wired up yet.
+
+## Contributing
+
+Issues and pull requests are welcome. `go test ./...` runs the unit and
+end-to-end tests (a real `git` on PATH is all they need). Keep in mind that
+every push to `main` publishes a release, so changes should land through
+pull requests.
+
+## License
+
+[MIT](LICENSE)
