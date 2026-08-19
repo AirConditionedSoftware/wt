@@ -15,15 +15,16 @@ import (
 )
 
 var (
-	addBase        string
-	addPath        string
-	addNoPrefix    bool
-	addCopyHooks   bool
-	addNoCopyHooks bool
-	addCopyFile    []string
-	addNoCopyFiles bool
-	addOpen        bool
-	addNoOpen      bool
+	addBase         string
+	addPath         string
+	addNoPrefix     bool
+	addCopyHooks    bool
+	addNoCopyHooks  bool
+	addCopyFile     []string
+	addNoCopyFiles  bool
+	addOpen         bool
+	addNoOpen       bool
+	addNoPostCreate bool
 )
 
 type branchKind int
@@ -161,6 +162,16 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	postCmds := settings.PostCreate
+	if addNoPostCreate {
+		postCmds = nil
+	}
+	if len(postCmds) > 0 {
+		if err := runPostCreate(target, mainPath, repo, branch, postCmds); err != nil {
+			return fmt.Errorf("worktree created at %s, but %w", displayPath(target), err)
+		}
+	}
+
 	openTarget := target
 	if settings.VSCodeWorkspaceFileEnabled() {
 		wsPath, err := writeWorkspaceFile(target, settings, repo, branch)
@@ -230,6 +241,33 @@ func writeWorkspaceFile(worktreePath string, settings config.Settings, repo, bra
 		return "", err
 	}
 	return wsPath, os.WriteFile(wsPath, append(data, '\n'), 0o644)
+}
+
+// runPostCreate runs the configured post_create commands inside the new
+// worktree, in order, stopping at the first failure. Commands come only from
+// the user-owned config file, never from the repository. Worktree metadata
+// is passed as WT_* environment variables — never interpolated into the
+// command string, since branch names may legally contain shell
+// metacharacters like $( ).
+func runPostCreate(worktreePath, mainPath, repo, branch string, cmds []string) error {
+	for _, c := range cmds {
+		fmt.Fprintf(os.Stderr, "post_create: %s\n", c)
+		cmd := exec.Command("sh", "-c", c)
+		cmd.Dir = worktreePath
+		// stdout stays reserved for the created path.
+		cmd.Stdout = os.Stderr
+		cmd.Stderr = os.Stderr
+		cmd.Env = append(os.Environ(),
+			"WT_WORKTREE="+worktreePath,
+			"WT_MAIN="+mainPath,
+			"WT_REPO="+repo,
+			"WT_BRANCH="+branch,
+		)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("post_create command %q: %w", c, err)
+		}
+	}
+	return nil
 }
 
 // openInVSCode launches VS Code on path. Failing to open is a warning, not
@@ -367,5 +405,6 @@ func init() {
 	addCmd.Flags().BoolVar(&addNoCopyFiles, "no-copy-files", false, "skip the config's copy_files list")
 	addCmd.Flags().BoolVar(&addOpen, "open", false, "open the new worktree in VS Code")
 	addCmd.Flags().BoolVar(&addNoOpen, "no-open", false, "do not open in VS Code even if the config enables vscode_open")
+	addCmd.Flags().BoolVar(&addNoPostCreate, "no-post-create", false, "skip the config's post_create commands")
 	rootCmd.AddCommand(addCmd)
 }
