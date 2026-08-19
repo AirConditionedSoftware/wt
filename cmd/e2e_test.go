@@ -164,6 +164,9 @@ func TestEndToEnd(t *testing.T) {
 		if strings.Contains(out, "\x1b") {
 			t.Errorf("list output contains ANSI escapes without a terminal:\n%q", out)
 		}
+		if !strings.Contains(out, "ago)") {
+			t.Errorf("list output missing relative commit age:\n%s", out)
+		}
 	})
 
 	t.Run("list json", func(t *testing.T) {

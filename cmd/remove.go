@@ -70,27 +70,13 @@ func removeInteractive() error {
 		return nil
 	}
 
-	shas := make([]string, 0, len(candidates))
-	for _, w := range candidates {
-		shas = append(shas, w.Head)
-	}
-	// Commit info is decoration; fall back to bare branch labels if it fails
-	// (e.g. a worktree on an unborn branch).
-	infos, _ := gitx.CommitInfos(".", shas)
-
-	width := 0
-	for _, w := range candidates {
-		if b := branchLabel(w); len(b) > width {
-			width = len(b)
-		}
-	}
+	// Commit info is decoration; entries fall back to bare branch labels
+	// if it fails (e.g. a worktree on an unborn branch).
+	infos := worktreeInfos(candidates)
+	width := branchWidth(candidates)
 	opts := make([]huh.Option[string], 0, len(candidates))
 	for _, w := range candidates {
-		label := fmt.Sprintf("%-*s", width, branchLabel(w))
-		if info, ok := infos[w.Head]; ok {
-			label = fmt.Sprintf("%s  %s %s (%s)", label, info.ShortHash, truncate(info.Subject, 60), info.When)
-		}
-		opts = append(opts, huh.NewOption(label, w.Path))
+		opts = append(opts, huh.NewOption(worktreeEntry(w, width, infos, ansiBold, true), w.Path))
 	}
 
 	var selected []string
