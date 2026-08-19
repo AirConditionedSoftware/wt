@@ -235,9 +235,11 @@ porcelain output is a stable interface).
 ## Releasing
 
 Releases are automated with [goreleaser](https://goreleaser.com) via GitHub
-Actions. Every push to `main` runs the tests, bumps the patch version from
-the latest `v*` tag (`v0.2.0` → `v0.2.1`), pushes the new tag, and publishes
-a GitHub release with darwin/linux binaries for amd64/arm64. For a minor or
+Actions. Every push to `main` runs the tests and, when code shipped in the
+binaries has changed since the last release (`*.go`, `go.mod`, `go.sum`, or
+`.goreleaser.yaml` — docs-only pushes don't release), bumps the patch
+version from the latest `v*` tag (`v0.2.0` → `v0.2.1`), pushes the new tag,
+and publishes a GitHub release with darwin/linux binaries for amd64/arm64. For a minor or
 major bump, push a tag yourself (`git tag v0.3.0 && git push origin main
 v0.3.0`) — the workflow releases exactly that version and later `main`
 pushes continue from it. Validate the goreleaser config locally with
@@ -253,6 +255,14 @@ Issues and pull requests are welcome — see
 `go test ./...` runs the unit and end-to-end tests (a real `git` on PATH is
 all they need). Keep in mind that every push to `main` publishes a release,
 so changes should land through pull requests.
+
+## AI assistance
+
+wt was built in collaboration with Claude (Anthropic's Claude Code): the
+design and feature decisions are human, most of the code was written by the
+model, and everything is human-reviewed, covered by the test suite, and
+verified end-to-end before release. Commits carry `Co-Authored-By` trailers
+reflecting this.
 
 ## License
 

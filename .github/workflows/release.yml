@@ -26,7 +26,11 @@ jobs:
       - run: go test ./...
       # On a push to main, mint the next patch version (v0.2.0 -> v0.2.1).
       # Skipped when HEAD is already tagged (e.g. main and a manual tag were
-      # pushed together) so the tag event doesn't double-release.
+      # pushed together) so the tag event doesn't double-release, and when
+      # nothing shipped in the binaries changed since the last release —
+      # docs-only pushes don't release. Diffing against the latest tag (not
+      # the pushed range) means a code change preceded by doc pushes or a
+      # failed run is still picked up.
       - name: Tag next patch version
         id: bump
         if: github.ref == 'refs/heads/main'
@@ -37,6 +41,16 @@ jobs:
             exit 0
           fi
           latest=$(git tag --list 'v*' | sort -V | tail -n1)
+          if [ -n "$latest" ]; then
+            changed=$(git diff --name-only "$latest"..HEAD -- '*.go' go.mod go.sum .goreleaser.yaml)
+            if [ -z "$changed" ]; then
+              echo "No code changes since ${latest}; skipping release"
+              echo "created=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Code changes since ${latest}:"
+            echo "$changed"
+          fi
           latest=${latest:-v0.0.0}
           IFS=. read -r major minor patch <<< "${latest#v}"
           next="v${major}.${minor}.$((patch + 1))"
