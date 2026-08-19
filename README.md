@@ -51,6 +51,7 @@ go install github.com/AirConditionedSoftware/wt@latest
   - `--open` opens the new worktree in VS Code (the `.code-workspace` file
     if one was written, the folder otherwise); `--no-open` overrides a
     `vscode_open` config that enables it
+  - `--no-post-create` skips the config's `post_create` commands
 - `wt remove [branch...] [--force]` (aliases: `wt rm`, `wt -r`) — remove the
   worktrees that have the given branches checked out; the branches themselves
   are kept. Paths work too. With no arguments, an interactive picker lets you
@@ -126,6 +127,7 @@ be set at the top level (applying to every repo) and overridden per repo:
     { "name": "notes", "path": "~/notes" }
   ],
   "full_paths": false,
+  "post_create": ["direnv allow"],
   "repos": [
     {
       "name": "myapp",
@@ -144,7 +146,8 @@ be set at the top level (applying to every repo) and overridden per repo:
         { "name": "docs", "path": "~/notes/myapp" },
         { "path": "~/code/shared-lib" }
       ],
-      "full_paths": true
+      "full_paths": true,
+      "post_create": ["npm install", "direnv allow"]
     }
   ]
 }
@@ -213,6 +216,20 @@ falls through.
   instead of abbreviating your home directory to `~`. Same effect as the
   global `--full-paths` flag. (`wt add`'s stdout path and `--json` output
   always use full paths regardless.)
+- `post_create` — shell commands run inside each newly created worktree, in
+  order via `sh -c`, after hooks and files are copied and before VS Code
+  opens (so `npm install` finishes first). Each command is printed before it
+  runs; the first failure stops the rest and reports it, but the worktree
+  survives. Skip once with `--no-post-create`. A repo entry's list
+  *replaces* the global one; `[]` disables. **Security posture**: these are
+  arbitrary commands by design, but they come only from this user-owned
+  config file — wt never reads config from inside a repository, so a cloned
+  repo can't inject commands. Worktree metadata reaches the commands as
+  environment variables (`WT_WORKTREE`, `WT_MAIN`, `WT_REPO`, `WT_BRANCH`)
+  rather than being interpolated into the command string, so branch names
+  containing shell metacharacters are inert. Do note that a command like
+  `npm install` executes the checked-out branch's own install scripts — the
+  same risk as running it yourself.
 - `repos` — per-repository overrides, explained below.
 
 Unknown keys are rejected so typos fail loudly.
@@ -229,6 +246,7 @@ Flags always win over the config for that one invocation:
 | `wt add --copy-hooks` / `--no-copy-hooks` | `copy_hooks` | force hook copying on or off once                                                |
 | `wt add --copy-file <glob>` / `--no-copy-files` | `copy_files` | `--copy-file` (repeatable) adds one-off entries; `--no-copy-files` skips the config list |
 | `wt add --open` / `--no-open`    | `vscode_open`   | force opening in VS Code on or off once                                                   |
+| `wt add --no-post-create`        | `post_create`   | skip the configured commands once                                                          |
 | `--full-paths` (any command)     | `full_paths`    | show absolute paths instead of `~`                                                        |
 
 `--no-color` and `wt remove --force` are flag-only; `vscode_workspace_file`,
@@ -250,7 +268,8 @@ top-level ones:
   for this repo. Default: the directory basename of the main worktree.
 - any of the settings fields above: `worktree_dir`, `default_base`,
   `branch_prefix`, `prefix_separator`, `copy_hooks`, `copy_files`,
-  `workspace_paths`, `full_paths`, and the `vscode_*` fields.
+  `workspace_paths`, `full_paths`, `post_create`, and the `vscode_*`
+  fields.
 
 Settings resolve in three layers, field by field:
 

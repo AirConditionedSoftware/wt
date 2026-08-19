@@ -62,6 +62,12 @@ type Settings struct {
 	// FullPaths shows absolute paths in human-facing output instead of
 	// abbreviating the home directory to ~. Same effect as --full-paths.
 	FullPaths *bool `json:"full_paths,omitempty"`
+	// PostCreate commands run inside a newly created worktree, in order,
+	// via sh -c. They come only from this user-owned config file — never
+	// from the repository — and worktree metadata is passed as WT_*
+	// environment variables rather than interpolated into the command.
+	// A repo entry's list replaces the global one; [] disables.
+	PostCreate []string `json:"post_create,omitempty"`
 }
 
 // WorkspacePath is one extra folder for generated .code-workspace files.
@@ -203,6 +209,9 @@ func (s *Settings) merge(over Settings) {
 	}
 	if over.FullPaths != nil {
 		s.FullPaths = over.FullPaths
+	}
+	if over.PostCreate != nil {
+		s.PostCreate = over.PostCreate
 	}
 }
 

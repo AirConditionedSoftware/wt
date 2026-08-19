@@ -819,6 +819,87 @@ func TestEndToEnd(t *testing.T) {
 		}
 	})
 
+	t.Run("post_create runs commands in the new worktree", func(t *testing.T) {
+		cfgPC := filepath.Join(work, "wt-postcreate.json")
+		cfgJSON := `{
+  "worktree_dir": "` + trees + `/{repo}/{branch}",
+  "repos": [{"path": "` + repo + `", "post_create": [
+    "echo ran > marker.txt",
+    "printf %s \"$WT_BRANCH\" > branch.txt",
+    "printf %s \"$WT_REPO\" > repo.txt"
+  ]}]
+}`
+		if err := os.WriteFile(cfgPC, []byte(cfgJSON), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		out, stderr, err := wt(t, home, cfgPC, repo, "add", "pc-test")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		if _, err := os.Stat(filepath.Join(out, "marker.txt")); err != nil {
+			t.Errorf("post_create did not run in the worktree: %v", err)
+		}
+		if b, _ := os.ReadFile(filepath.Join(out, "branch.txt")); string(b) != "pc-test" {
+			t.Errorf("WT_BRANCH = %q; want pc-test", b)
+		}
+		if b, _ := os.ReadFile(filepath.Join(out, "repo.txt")); string(b) != "myapp" {
+			t.Errorf("WT_REPO = %q; want myapp", b)
+		}
+
+		out2, _, err := wt(t, home, cfgPC, repo, "add", "--no-post-create", "pc-skip")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(out2, "marker.txt")); !os.IsNotExist(err) {
+			t.Error("--no-post-create should have skipped the commands")
+		}
+	})
+
+	t.Run("post_create is safe against shell metacharacters in branch names", func(t *testing.T) {
+		cfgPC := filepath.Join(work, "wt-postcreate-inj.json")
+		cfgJSON := `{
+  "worktree_dir": "` + trees + `/{repo}/{branch}",
+  "repos": [{"path": "` + repo + `", "post_create": ["printf %s \"$WT_BRANCH\" > branch.txt"]}]
+}`
+		if err := os.WriteFile(cfgPC, []byte(cfgJSON), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		// A legal git ref name (no spaces allowed) that creates BOOM via
+		// redirection if it is ever shell-interpolated.
+		evil := "inj-$(>BOOM)"
+		out, stderr, err := wt(t, home, cfgPC, repo, "add", evil)
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		if _, err := os.Stat(filepath.Join(out, "BOOM")); !os.IsNotExist(err) {
+			t.Error("branch name was shell-interpolated: BOOM file exists")
+		}
+		if b, _ := os.ReadFile(filepath.Join(out, "branch.txt")); string(b) != evil {
+			t.Errorf("WT_BRANCH = %q; want the literal branch name %q", b, evil)
+		}
+	})
+
+	t.Run("post_create failure reports the worktree survived", func(t *testing.T) {
+		cfgPC := filepath.Join(work, "wt-postcreate-fail.json")
+		cfgJSON := `{
+  "worktree_dir": "` + trees + `/{repo}/{branch}",
+  "repos": [{"path": "` + repo + `", "post_create": ["exit 7"]}]
+}`
+		if err := os.WriteFile(cfgPC, []byte(cfgJSON), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		_, stderr, err := wt(t, home, cfgPC, repo, "add", "pc-fail")
+		if err == nil {
+			t.Fatal("expected error when a post_create command fails")
+		}
+		if !strings.Contains(stderr, "worktree created") || !strings.Contains(stderr, "post_create") {
+			t.Errorf("stderr = %q; want worktree-created and post_create mention", stderr)
+		}
+		if _, err := os.Stat(filepath.Join(trees, "myapp", "pc-fail")); err != nil {
+			t.Errorf("worktree should survive a failed post_create: %v", err)
+		}
+	})
+
 	t.Run("prune cleans up stale worktrees", func(t *testing.T) {
 		out, _, err := wt(t, home, cfg, repo, "add", "doomed")
 		if err != nil {

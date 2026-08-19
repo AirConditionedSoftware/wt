@@ -25,3 +25,8 @@ Reports of particular interest:
 - argument injection into the `git` or `code` invocations
 - the removal flows deleting anything other than the selected worktree and
   its wt-generated workspace file
+- `post_create` executing anything not written verbatim in the user's own
+  config: commands come only from `~/.wt/wt.json` / `$WT_CONFIG` (never
+  from the repository), and worktree metadata is passed as `WT_*`
+  environment variables, never interpolated into the shell command — a
+  bypass of either property is a vulnerability
