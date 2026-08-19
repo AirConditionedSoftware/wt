@@ -20,15 +20,17 @@ $ wt list
 
 ## Install
 
-Grab a binary from
+```sh
+brew install AirConditionedSoftware/tap/wt
+```
+
+Or grab a binary from
 [GitHub Releases](https://github.com/AirConditionedSoftware/wt/releases), or
 install with Go:
 
 ```sh
 go install github.com/AirConditionedSoftware/wt@latest
 ```
-
-(A Homebrew tap is planned but not wired up yet.)
 
 ## Usage
 
@@ -245,8 +247,10 @@ v0.3.0`) — the workflow releases exactly that version and later `main`
 pushes continue from it. Validate the goreleaser config locally with
 `goreleaser release --snapshot --clean`.
 
-Homebrew distribution (a tap plus a goreleaser-published cask) is planned
-but not wired up yet.
+Each release also updates the Homebrew cask in
+[AirConditionedSoftware/homebrew-tap](https://github.com/AirConditionedSoftware/homebrew-tap),
+pushed by goreleaser using the `TAP_GITHUB_TOKEN` repository secret — a
+token with write access to the tap repository.
 
 ## Contributing
 
