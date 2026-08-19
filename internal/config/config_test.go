@@ -156,7 +156,7 @@ func TestLoadRepoMissingPathFails(t *testing.T) {
 
 // writeGlobalForRepo writes a global config whose repos entry matches main,
 // points $WT_CONFIG at it, and returns the settings that entry resolves to
-// with no .wt.json present.
+// with no .wtrc present.
 func writeGlobalForRepo(t *testing.T, main string) Settings {
 	t.Helper()
 	p := filepath.Join(t.TempDir(), "wt.json")
@@ -192,7 +192,7 @@ func TestResolveLayers(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		local string // .wt.json content; "" means no file
+		local string // .wtrc content; "" means no file
 		want  Resolved
 	}{
 		{
@@ -279,7 +279,7 @@ func TestResolveWithoutLocalMatchesForPath(t *testing.T) {
 		t.Errorf("Resolve() = %+v, %q; want ForPath result %+v, %q", got.Settings, got.RepoName, want, wantName)
 	}
 	if got.LocalFile != "" || got.PostCreateFromRepo {
-		t.Errorf("Resolve() with no .wt.json: LocalFile = %q, PostCreateFromRepo = %v; want \"\", false", got.LocalFile, got.PostCreateFromRepo)
+		t.Errorf("Resolve() with no .wtrc: LocalFile = %q, PostCreateFromRepo = %v; want \"\", false", got.LocalFile, got.PostCreateFromRepo)
 	}
 }
 

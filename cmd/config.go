@@ -49,7 +49,7 @@ default location, the built-in defaults are printed instead.`,
 			fmt.Println()
 		}
 
-		// A repo's own .wt.json is part of its effective config, so print it
+		// A repo's own .wtrc is part of its effective config, so print it
 		// as a second document (the stdout stream stays jq-parseable).
 		// Outside a repository there is nothing to look for.
 		if wts, err := gitx.ListWorktrees("."); err == nil && len(wts) > 0 {

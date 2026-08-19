@@ -287,7 +287,7 @@ func runPostCreate(worktreePath, mainPath, repo, branch string, cmds []string) e
 }
 
 // approveRepoPostCreate gates post_create commands that came from the
-// repository's own .wt.json instead of the user-owned config file, and
+// repository's own .wtrc instead of the user-owned config file, and
 // reports whether they may run. Commands identical to a stored approval run
 // without prompting; anything else asks for confirmation and records the
 // answer. Without a terminal to ask at, the commands are skipped with a

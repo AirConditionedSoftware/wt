@@ -79,9 +79,9 @@ go install github.com/AirConditionedSoftware/wt@latest
 - `wt config` — print the config file location (stderr) and its content
   (stdout, so `wt config | jq` works). Prints the built-in defaults if no
   file exists, and fails loudly if the file is invalid. Run inside a repo
-  that has a `.wt.json`, it prints and validates that file too, after the
+  that has a `.wtrc`, it prints and validates that file too, after the
   global one.
-- `wt init` — create a starter repo-local `.wt.json` at the main worktree
+- `wt init` — create a starter repo-local `.wtrc` at the main worktree
   root (refuses to overwrite an existing one) and print its path, so
   `$EDITOR "$(wt init)"` opens it. See "Repo-local config" below.
 - `wt completion` — interactive wizard that sets up shell completion: pick
@@ -158,7 +158,7 @@ be set at the top level (applying to every repo) and overridden per repo:
 }
 ```
 
-A repository can also carry a `.wt.json` of its own, accepting the same
+A repository can also carry a `.wtrc` of its own, accepting the same
 settings fields plus `name` — see "Repo-local config" below.
 
 One nuance when overriding: an explicit `false` in a repo entry *does*
@@ -231,7 +231,7 @@ falls through.
   survives. Skip once with `--no-post-create`. A repo entry's list
   *replaces* the global one; `[]` disables. **Security posture**: these are
   arbitrary commands by design. Commands in this file are user-owned and
-  run as written; commands that come from a repo's `.wt.json` run only
+  run as written; commands that come from a repo's `.wtrc` run only
   after you approve them (see "Repo-local config" below), so a cloned repo
   can't inject commands silently. Worktree metadata reaches the commands as
   environment variables (`WT_WORKTREE`, `WT_MAIN`, `WT_REPO`, `WT_BRANCH`)
@@ -262,9 +262,9 @@ Flags always win over the config for that one invocation:
 `vscode_workspace_prefix`, `vscode_window_title`, `workspace_paths`, and
 `prefix_separator` are config-only.
 
-### Repo-local config (`.wt.json`)
+### Repo-local config (`.wtrc`)
 
-A repository can keep its own config in a `.wt.json` at the root of its
+A repository can keep its own config in a `.wtrc` at the root of its
 **main worktree**. It is never read from a linked worktree, but it applies
 whenever wt runs from any of the repo's worktrees — wt finds the main
 worktree through git. No file means nothing changes. `wt init` scaffolds
@@ -274,7 +274,7 @@ worktree) and prints its path, so `$EDITOR "$(wt init)"` opens it directly.
 It holds the same settings fields as the global config, plus `name` (what
 `{repo}` expands to). `repos` and `path` are rejected, because the file
 already *is* repo-specific; unknown keys fail loudly as usual, and a broken
-`.wt.json` is an error like a broken global config. Since it lives in the
+`.wtrc` is an error like a broken global config. Since it lives in the
 repo, it can be committed and shared with a team:
 
 ```json
@@ -287,13 +287,13 @@ repo, it can be committed and shared with a team:
 }
 ```
 
-`.wt.json` is the **top layer**: its values override both the global
+`.wtrc` is the **top layer**: its values override both the global
 top-level fields and the repo's global `repos` entry, field by field, with
 the same merge rules as everywhere else — an empty string falls through to
 the layer below, a list replaces the list below it, and an explicit `false`
 overrides an inherited `true`.
 
-Because a committed `.wt.json` arrives with the repository, `post_create`
+Because a committed `.wtrc` arrives with the repository, `post_create`
 commands that come from it run only after you approve them. `wt add`
 prompts the first time, showing the commands; approvals are remembered in
 `~/.wt/trust.json`, keyed by the repo's main worktree. Any later change to
@@ -302,7 +302,7 @@ prompts again, showing a diff of the approved commands against the new
 ones:
 
 ```
-post_create in ~/code/myapp/.wt.json changed:
+post_create in ~/code/myapp/.wtrc changed:
 
     direnv allow
   - npm install
@@ -340,11 +340,11 @@ Settings resolve in four layers, field by field:
 1. built-in defaults, overlaid with
 2. the top-level fields in wt.json, overlaid with
 3. the `repos` entry whose `path` matches, overlaid with
-4. the repo's own `.wt.json`, if it has one.
+4. the repo's own `.wtrc`, if it has one.
 
 A layer only needs the fields it wants to change; anything it omits falls
 through to the layer below. With the example config above — and the
-`.wt.json` from the previous section sitting in `~/code/myapp` — running
+`.wtrc` from the previous section sitting in `~/code/myapp` — running
 `wt add fix-login` inside `~/code/myapp` (or any of its worktrees) resolves
 to:
 
@@ -352,11 +352,11 @@ to:
 | ------------------ | ----------------------------- | ---------- |
 | `worktree_dir`     | `~/code/myapp-trees/{branch}` | repo entry |
 | `default_base`     | `develop`                     | repo entry |
-| `branch_prefix`    | `team`                        | `.wt.json` |
-| `prefix_separator` | `-`                           | `.wt.json` |
-| `post_create`      | `["npm ci"]`                  | `.wt.json` |
+| `branch_prefix`    | `team`                        | `.wtrc` |
+| `prefix_separator` | `-`                           | `.wtrc` |
+| `post_create`      | `["npm ci"]`                  | `.wtrc` |
 
-`.wt.json` has the last word on the bottom three rows: it repeats the
+`.wtrc` has the last word on the bottom three rows: it repeats the
 entry's `branch_prefix` and `prefix_separator`, and its `post_create`
 replaces the entry's `["npm install", "direnv allow"]` — a repo-sourced
 list, so it needs approval before it runs. The created branch is

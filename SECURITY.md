@@ -16,7 +16,7 @@ do not open a public issue. You should hear back within a week.
 
 wt is a local developer tool: it shells out to the `git` binary, reads a
 local JSON config (`~/.wt/wt.json` or `$WT_CONFIG`, plus an optional
-`.wt.json` in a repo's main worktree), and creates worktrees,
+`.wtrc` in a repo's main worktree), and creates worktrees,
 copies files, and writes `.code-workspace` files where that config points.
 Reports of particular interest:
 
@@ -28,7 +28,7 @@ Reports of particular interest:
   its wt-generated workspace file
 - `post_create` executing commands the user never approved. Commands come
   either from the user's own config file (`~/.wt/wt.json` / `$WT_CONFIG`)
-  or from a repository's `.wt.json`; repo-sourced commands run only after
+  or from a repository's `.wtrc`; repo-sourced commands run only after
   explicit interactive approval recorded in `~/.wt/trust.json`, and any
   change to those commands invalidates the approval and re-prompts with a
   diff. Running unapproved repo-sourced commands, or bypassing the change

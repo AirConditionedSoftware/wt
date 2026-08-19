@@ -902,9 +902,9 @@ func TestEndToEnd(t *testing.T) {
 
 	// The repo-local config lives in the main worktree and is deleted again
 	// by each subtest, so it cannot leak into the ones that follow.
-	localCfg := filepath.Join(repo, ".wt.json")
+	localCfg := filepath.Join(repo, ".wtrc")
 
-	t.Run(".wt.json overrides global repos entry", func(t *testing.T) {
+	t.Run(".wtrc overrides global repos entry", func(t *testing.T) {
 		cfgLocal := filepath.Join(work, "wt-local.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
@@ -929,7 +929,7 @@ func TestEndToEnd(t *testing.T) {
 		}
 		want := filepath.Join(trees, "local-localname", "local-wtj-test")
 		if out != want {
-			t.Errorf("stdout = %q; want %q from .wt.json", out, want)
+			t.Errorf("stdout = %q; want %q from .wtrc", out, want)
 		}
 		if got := git(t, home, out, "rev-parse", "--abbrev-ref", "HEAD"); got != "local/wtj-test" {
 			t.Errorf("checked-out branch = %q; want local/wtj-test", got)
@@ -1004,7 +1004,7 @@ func TestEndToEnd(t *testing.T) {
 		}
 	})
 
-	t.Run(".wt.json with repos key fails add but not list", func(t *testing.T) {
+	t.Run(".wtrc with repos key fails add but not list", func(t *testing.T) {
 		if err := os.WriteFile(localCfg, []byte(`{"repos": []}`), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -1012,13 +1012,13 @@ func TestEndToEnd(t *testing.T) {
 
 		_, stderr, err := wt(t, home, cfg, repo, "add", "wtj-invalid")
 		if err == nil {
-			t.Fatal("expected error for a .wt.json with a repos key")
+			t.Fatal("expected error for a .wtrc with a repos key")
 		}
-		if !strings.Contains(stderr, ".wt.json") {
+		if !strings.Contains(stderr, ".wtrc") {
 			t.Errorf("stderr = %q; want the repo-local file named", stderr)
 		}
 		if _, stderr, err := wt(t, home, cfg, repo, "list"); err != nil {
-			t.Errorf("list should survive a broken .wt.json: %v\n%s", err, stderr)
+			t.Errorf("list should survive a broken .wtrc: %v\n%s", err, stderr)
 		}
 	})
 
@@ -1039,31 +1039,31 @@ func TestEndToEnd(t *testing.T) {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
 		if !strings.Contains(stderr, resolved) || !strings.Contains(stderr, "repo-local") {
-			t.Errorf("stderr = %q; want the .wt.json path marked repo-local", stderr)
+			t.Errorf("stderr = %q; want the .wtrc path marked repo-local", stderr)
 		}
 		if !strings.Contains(out, localJSON) {
 			t.Errorf("stdout = %q; want the repo-local content %q", out, localJSON)
 		}
 	})
 
-	t.Run("init scaffolds a repo-local .wt.json", func(t *testing.T) {
+	t.Run("init scaffolds a repo-local .wtrc", func(t *testing.T) {
 		out, stderr, err := wt(t, home, cfg, repo, "init")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
-		wtjson := filepath.Join(repo, ".wt.json")
+		wtjson := filepath.Join(repo, ".wtrc")
 		t.Cleanup(func() { os.Remove(wtjson) })
 		data, err := os.ReadFile(wtjson)
 		if err != nil {
-			t.Fatalf(".wt.json not created at the main worktree root: %v", err)
+			t.Fatalf(".wtrc not created at the main worktree root: %v", err)
 		}
 		var lc struct {
 			Name string `json:"name"`
 		}
 		if err := json.Unmarshal(data, &lc); err != nil || lc.Name != "myapp" {
-			t.Errorf(".wt.json = %s (err %v); want name myapp", data, err)
+			t.Errorf(".wtrc = %s (err %v); want name myapp", data, err)
 		}
-		if filepath.Base(out) != ".wt.json" {
+		if filepath.Base(out) != ".wtrc" {
 			t.Errorf("stdout = %q; want the created file path", out)
 		}
 
@@ -1083,10 +1083,10 @@ func TestEndToEnd(t *testing.T) {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
 		if _, err := os.Stat(wtjson); err != nil {
-			t.Errorf(".wt.json missing from main worktree after init in linked worktree: %v", err)
+			t.Errorf(".wtrc missing from main worktree after init in linked worktree: %v", err)
 		}
-		if _, err := os.Stat(filepath.Join(linked, ".wt.json")); !os.IsNotExist(err) {
-			t.Error(".wt.json must not be created inside the linked worktree")
+		if _, err := os.Stat(filepath.Join(linked, ".wtrc")); !os.IsNotExist(err) {
+			t.Error(".wtrc must not be created inside the linked worktree")
 		}
 	})
 

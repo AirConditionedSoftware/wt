@@ -13,8 +13,8 @@ import (
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Create a repo-local .wt.json",
-	Long: `Create a starter .wt.json at the root of the repository's main worktree —
+	Short: "Create a repo-local .wtrc",
+	Long: `Create a starter .wtrc at the root of the repository's main worktree —
 even when run from a linked worktree, since that is where wt reads it from.
 The file holds per-repo settings that override the global config and its
 repos entry; it can be committed to share with a team.

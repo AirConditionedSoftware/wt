@@ -99,9 +99,9 @@ type File struct {
 
 // LocalFileName is the repo-local config file, read from the root of a
 // repository's main worktree only — never from a linked worktree.
-const LocalFileName = ".wt.json"
+const LocalFileName = ".wtrc"
 
-// LocalConfig is the .wt.json schema: the same settings as a repos entry,
+// LocalConfig is the .wtrc schema: the same settings as a repos entry,
 // for the repository the file lives in. It is parsed with unknown fields
 // rejected, so "repos" and "path" — meaningless in a file that is itself
 // the repo — fail loudly.
@@ -173,7 +173,7 @@ func validateWorkspacePaths(desc, where string, wps []WorkspacePath) error {
 	return nil
 }
 
-// loadLocal reads <mainPath>/.wt.json. A missing file is not an error; the
+// loadLocal reads <mainPath>/.wtrc. A missing file is not an error; the
 // returned path is reported either way, for provenance. Broken JSON and
 // unknown fields fail loudly, like a broken global config.
 func loadLocal(mainPath string) (*LocalConfig, string, error) {
@@ -202,13 +202,13 @@ func loadLocal(mainPath string) (*LocalConfig, string, error) {
 // values came from.
 type Resolved struct {
 	Settings
-	// RepoName is the .wt.json name, else the global repos entry's name,
+	// RepoName is the .wtrc name, else the global repos entry's name,
 	// else "" (the caller falls back to the directory basename).
 	RepoName string
-	// LocalFile is the path of the .wt.json that was loaded, "" if none.
+	// LocalFile is the path of the .wtrc that was loaded, "" if none.
 	LocalFile string
 	// PostCreateFromRepo reports that the effective PostCreate came from
-	// .wt.json rather than the user-owned global config, and so needs
+	// .wtrc rather than the user-owned global config, and so needs
 	// approval before it runs.
 	PostCreateFromRepo bool
 }
@@ -216,7 +216,7 @@ type Resolved struct {
 // Resolve returns the effective settings for the repository whose main
 // worktree is at mainPath, layering built-in defaults, the global config's
 // top-level settings, its matching repos entry, and finally the repo's own
-// .wt.json. Each layer overrides field by field: empty strings fall through,
+// .wtrc. Each layer overrides field by field: empty strings fall through,
 // lists and booleans that are set replace the layer below.
 func Resolve(mainPath string) (Resolved, error) {
 	cfg, err := Load()
