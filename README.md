@@ -84,6 +84,11 @@ green, prunable rows yellow, locked rows cyan. Disable with `--no-color` or
 the [`NO_COLOR`](https://no-color.org) environment variable; piped output is
 always plain.
 
+Paths under your home directory display as `~/...`; show absolute paths with
+the global `--full-paths` flag or the `full_paths` config setting.
+Machine-facing output — the path `wt add` prints on stdout and everything
+`--json` — always uses full paths.
+
 `wt add` prints only the created path on stdout (everything else goes to
 stderr), so you can hop straight into a new worktree with a shell function:
 
@@ -178,6 +183,10 @@ explicit `$WT_CONFIG` path is an error.
   They're appended to the `folders` array after the worktree itself, so the
   workspace spans multiple folders. A repo entry's list replaces the global
   one.
+- `full_paths` — show absolute paths in tables, prompts, and messages
+  instead of abbreviating your home directory to `~`. Same effect as the
+  global `--full-paths` flag. (`wt add`'s stdout path and `--json` output
+  always use full paths regardless.)
 - `repos` — per-repository overrides, explained below.
 
 Unknown keys are rejected so typos fail loudly.
@@ -197,7 +206,7 @@ top-level ones:
   for this repo. Default: the directory basename of the main worktree.
 - any of the settings fields above: `worktree_dir`, `default_base`,
   `branch_prefix`, `prefix_separator`, `copy_hooks`, `copy_files`,
-  `workspace_paths`, and the `vscode_*` fields.
+  `workspace_paths`, `full_paths`, and the `vscode_*` fields.
 
 Settings resolve in three layers, field by field:
 

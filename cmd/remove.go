@@ -182,6 +182,14 @@ func removeWorktree(name string) error {
 		return err
 	}
 
+	// Display preferences and (later) workspace-file cleanup; a broken
+	// config must not block removal.
+	cfg, cfgErr := config.Load()
+	if cfgErr == nil {
+		s, _ := cfg.ForPath(wts[0].Path)
+		applyDisplayConfig(s)
+	}
+
 	target := findWorktree(wts, name)
 	if target == nil {
 		return fmt.Errorf("no worktree found for %q (see wt list)", name)
@@ -226,7 +234,7 @@ func removeWorktree(name string) error {
 	// The wt-generated workspace file lives next to the worktree; clean it
 	// up too so it doesn't orphan. Only when wt manages workspace files for
 	// this repo — never delete files wt didn't create.
-	if cfg, err := config.Load(); err == nil {
+	if cfgErr == nil {
 		if settings, _ := cfg.ForPath(wts[0].Path); settings.VSCodeWorkspaceFileEnabled() {
 			if ws := workspaceFilePath(settings, target.Path, target.Branch); ws != "" {
 				if err := os.Remove(ws); err == nil {

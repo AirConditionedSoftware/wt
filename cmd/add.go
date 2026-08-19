@@ -69,6 +69,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	if repo == "" {
 		repo = filepath.Base(mainPath)
 	}
+	applyDisplayConfig(settings)
 
 	prefix := settings.EffectivePrefix()
 	if addNoPrefix || (prefix != "" && strings.HasPrefix(arg, prefix)) {

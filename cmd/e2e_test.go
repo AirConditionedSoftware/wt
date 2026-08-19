@@ -753,6 +753,53 @@ func TestEndToEnd(t *testing.T) {
 		}
 	})
 
+	t.Run("full paths flag and config", func(t *testing.T) {
+		inHome := filepath.Join(home, "trees", "homed")
+		out, _, err := wt(t, home, cfg, repo, "add", "--path", inHome, "homed")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out != inHome {
+			t.Errorf("wt add stdout = %q; want absolute %q", out, inHome)
+		}
+
+		l, _, err := wt(t, home, cfg, repo, "list")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(l, "~/trees/homed") {
+			t.Errorf("list should abbreviate the home directory:\n%s", l)
+		}
+
+		lf, _, err := wt(t, home, cfg, repo, "list", "--full-paths")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(lf, "~/trees/homed") {
+			t.Errorf("list --full-paths should not abbreviate:\n%s", lf)
+		}
+
+		cfgFull := filepath.Join(work, "wt-fullpaths.json")
+		cfgJSON := `{
+  "worktree_dir": "` + trees + `/{repo}/{branch}",
+  "repos": [{"path": "` + repo + `", "full_paths": true}]
+}`
+		if err := os.WriteFile(cfgFull, []byte(cfgJSON), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		lc, _, err := wt(t, home, cfgFull, repo, "list")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(lc, "~/trees/homed") {
+			t.Errorf("list with full_paths config should not abbreviate:\n%s", lc)
+		}
+
+		if _, _, err := wt(t, home, cfg, repo, "remove", "homed"); err != nil {
+			t.Fatal(err)
+		}
+	})
+
 	t.Run("prune cleans up stale worktrees", func(t *testing.T) {
 		out, _, err := wt(t, home, cfg, repo, "add", "doomed")
 		if err != nil {

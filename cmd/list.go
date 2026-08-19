@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/AirConditionedSoftware/wt/internal/config"
 	"github.com/AirConditionedSoftware/wt/internal/gitx"
 	"github.com/spf13/cobra"
 )
@@ -23,6 +24,11 @@ var listCmd = &cobra.Command{
 		wts, err := gitx.ListWorktrees(".")
 		if err != nil {
 			return err
+		}
+		// Display preferences only — a broken config must not break list.
+		if cfg, err := config.Load(); err == nil {
+			s, _ := cfg.ForPath(wts[0].Path)
+			applyDisplayConfig(s)
 		}
 		if listJSON {
 			enc := json.NewEncoder(os.Stdout)

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/AirConditionedSoftware/wt/internal/config"
 	"github.com/AirConditionedSoftware/wt/internal/gitx"
 	"github.com/spf13/cobra"
 )
@@ -32,6 +33,10 @@ database inside .git is not attributed to any worktree.`,
 		wts, err := gitx.ListWorktrees(".")
 		if err != nil {
 			return err
+		}
+		if cfg, err := config.Load(); err == nil {
+			s, _ := cfg.ForPath(wts[0].Path)
+			applyDisplayConfig(s)
 		}
 
 		type row struct {

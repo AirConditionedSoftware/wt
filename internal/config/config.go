@@ -59,6 +59,9 @@ type Settings struct {
 	// files after the worktree itself. A repo entry's list replaces the
 	// global one.
 	WorkspacePaths []WorkspacePath `json:"workspace_paths,omitempty"`
+	// FullPaths shows absolute paths in human-facing output instead of
+	// abbreviating the home directory to ~. Same effect as --full-paths.
+	FullPaths *bool `json:"full_paths,omitempty"`
 }
 
 // WorkspacePath is one extra folder for generated .code-workspace files.
@@ -198,6 +201,14 @@ func (s *Settings) merge(over Settings) {
 	if over.WorkspacePaths != nil {
 		s.WorkspacePaths = over.WorkspacePaths
 	}
+	if over.FullPaths != nil {
+		s.FullPaths = over.FullPaths
+	}
+}
+
+// FullPathsEnabled reports whether full_paths is set and true.
+func (s Settings) FullPathsEnabled() bool {
+	return s.FullPaths != nil && *s.FullPaths
 }
 
 // CopyHooksEnabled reports whether copy_hooks is set and true.
