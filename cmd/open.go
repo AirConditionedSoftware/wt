@@ -80,11 +80,16 @@ func pickWorktree(wts []gitx.Worktree) (*gitx.Worktree, error) {
 	}
 
 	infos := worktreeInfos(wts)
-	width := branchWidth(wts)
+	defBranch := gitx.DefaultBranch(".")
 
 	opts := make([]huh.Option[int], 0, len(wts))
 	for i, w := range wts {
-		opts = append(opts, huh.NewOption(worktreeEntry(w, width, infos, ansiBold, true), i))
+		line1, line2 := worktreeLines(w, infos, defBranch, gatherFacts(w, defBranch), 40)
+		label := line1
+		if line2 != "" {
+			label += "  " + line2
+		}
+		opts = append(opts, huh.NewOption(label, i))
 	}
 
 	selected := -1

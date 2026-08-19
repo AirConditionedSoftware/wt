@@ -1,44 +1,112 @@
 package cmd
 
 import (
-	"fmt"
+	"path/filepath"
+	"strconv"
 
 	"github.com/AirConditionedSoftware/wt/internal/gitx"
 )
 
-// worktreeEntry builds the one-line worktree summary shared by wt list and
-// the interactive pickers: padded branch (styled), then dimmed short head,
-// optional commit subject, dimmed relative age, and locked/prunable tags.
-// The tags are words, so they survive piping and --no-color.
-func worktreeEntry(w gitx.Worktree, width int, infos map[string]gitx.CommitInfo, branchStyle string, withSubject bool) string {
-	line := colorText(fmt.Sprintf("%-*s", width, branchLabel(w)), branchStyle)
+// worktreeFacts are the live-state details the rich entry format shows.
+type worktreeFacts struct {
+	changes    int // pending files: staged, unstaged, and untracked
+	changesOK  bool
+	mergeKnown bool // merge status applies (not the default branch) and was computable
+	merged     bool
+}
 
-	head := w.Head
-	if len(head) > 8 {
-		head = head[:8]
+// gatherFacts runs the per-worktree git queries behind the entry format.
+// Everything is best-effort: a failing query just omits its segment.
+func gatherFacts(w gitx.Worktree, defBranch string) worktreeFacts {
+	var f worktreeFacts
+	if w.Bare {
+		return f
 	}
-	if head != "" {
-		line += colorText("  "+head, ansiDim)
-		info, ok := infos[w.Head]
-		if ok && withSubject && info.Subject != "" {
-			line += " " + truncate(info.Subject, 48)
+	if n, err := gitx.ChangeCount(w.Path); err == nil {
+		f.changes, f.changesOK = n, true
+	}
+	if defBranch != "" && w.Branch != "" && w.Branch != defBranch && w.Head != "" {
+		ref := "refs/heads/" + defBranch
+		if !gitx.LocalBranchExists(".", defBranch) {
+			ref = "refs/remotes/origin/" + defBranch
 		}
-		if ok && info.When != "" {
-			line += colorText(" ("+info.When+")", ansiDim)
+		f.mergeKnown = true
+		f.merged = gitx.IsAncestor(".", w.Head, ref)
+	}
+	return f
+}
+
+// worktreeLines renders the two-line rich entry shared by list and the
+// pickers:
+//
+//	name [branch]
+//	hash subject (age) | N unstaged | ✓ merged into main
+//
+// Name is bright, the branch green, commit metadata gray, merge status
+// green when merged and yellow when not; locked/prunable tags close the
+// line. Any segment whose data is unavailable is omitted.
+func worktreeLines(w gitx.Worktree, infos map[string]gitx.CommitInfo, defBranch string, f worktreeFacts, subjectLimit int) (string, string) {
+	name := colorText(filepath.Base(w.Path), ansiBold)
+	switch {
+	case w.Branch != "":
+		name += " " + colorText("["+w.Branch+"]", ansiGreen)
+	case w.Bare:
+		name += " " + colorText("[bare]", ansiGray)
+	case w.Detached:
+		name += " " + colorText("[detached]", ansiGray)
+	}
+
+	var meta string
+	sep := colorText(" | ", ansiGray)
+	if head := w.Head; head != "" {
+		if len(head) > 8 {
+			head = head[:8]
+		}
+		commit := head
+		if info, ok := infos[w.Head]; ok {
+			if info.Subject != "" {
+				commit += " " + truncate(info.Subject, subjectLimit)
+			}
+			if info.When != "" {
+				commit += " (" + info.When + ")"
+			}
+		}
+		meta = colorText(commit, ansiGray)
+	}
+	if f.changesOK {
+		if meta != "" {
+			meta += sep
+		}
+		meta += strconv.Itoa(f.changes) + " unstaged"
+	}
+	if f.mergeKnown {
+		if meta != "" {
+			meta += sep
+		}
+		if f.merged {
+			meta += colorText("✓ merged into "+defBranch, ansiGreen)
+		} else {
+			meta += colorText("✗ not merged into "+defBranch, ansiYellow)
 		}
 	}
 	if w.Locked {
-		line += colorText("  locked", ansiCyan)
+		if meta != "" {
+			meta += sep
+		}
+		meta += colorText("locked", ansiCyan)
 	}
 	if w.Prunable {
-		line += colorText("  prunable", ansiYellow)
+		if meta != "" {
+			meta += sep
+		}
+		meta += colorText("prunable", ansiYellow)
 	}
-	return line
+	return name, meta
 }
 
 // worktreeInfos fetches commit display info for the worktrees, skipping
 // headless (bare) entries. Best-effort: on error the entries just render
-// without ages.
+// without subjects and ages.
 func worktreeInfos(wts []gitx.Worktree) map[string]gitx.CommitInfo {
 	var shas []string
 	for _, w := range wts {
@@ -48,15 +116,4 @@ func worktreeInfos(wts []gitx.Worktree) map[string]gitx.CommitInfo {
 	}
 	infos, _ := gitx.CommitInfos(".", shas)
 	return infos
-}
-
-// branchWidth returns the padding width for aligned branch columns.
-func branchWidth(wts []gitx.Worktree) int {
-	width := 0
-	for _, w := range wts {
-		if l := len(branchLabel(w)); l > width {
-			width = l
-		}
-	}
-	return width
 }

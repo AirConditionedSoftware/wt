@@ -13,10 +13,10 @@ Creating worktree with new branch "feature/login" from main
 /Users/you/worktrees/myapp/feature-login
 
 $ wt list
-* main           1a2b3c4d (2 hours ago)
-    ~/code/myapp
-  feature/login  1a2b3c4d (3 days ago)
-    ~/worktrees/myapp/feature-login
+* myapp [main]
+  1a2b3c4d Merge pull request #7 (2 hours ago) | 0 unstaged
+  feature-login [feature/login]
+  8ca50149 Add OAuth flow (3 days ago) | 2 unstaged | ✗ not merged into main
 ```
 
 ## Install
@@ -36,9 +36,13 @@ go install github.com/AirConditionedSoftware/wt@latest
 ## Usage
 
 - `wt list [--json]` — list all worktrees of the current repository, two
-  lines per worktree (branch, short HEAD, and the last commit's age; path
-  indented below) so long paths never blow out the width. The `*` marks the worktree you're in;
-  locked and prunable worktrees carry inline tags (and flags in `--json`).
+  lines per worktree: the worktree name with its `[branch]`, then the last
+  commit (hash, subject, age), the number of pending files (`N unstaged` —
+  staged, unstaged, and untracked), and whether the branch is merged into
+  the default branch (`✓ merged` green / `✗ not merged` yellow; omitted for
+  the default branch itself). The `*` marks the worktree you're in; locked
+  and prunable worktrees carry inline tags, and `--json` has full paths and
+  flags. The open and remove pickers show the same entries.
 - `wt add <branch> [--base <ref>] [--path <dir>]` — create a worktree:
   - branch exists locally → checked out as-is
   - branch exists on `origin` → local branch created tracking it (fetches
@@ -100,12 +104,13 @@ go install github.com/AirConditionedSoftware/wt@latest
   `wt completion <bash|zsh|fish|powershell>` prints the raw script that the
   installed line sources.
 
-Output is colored when stdout is a terminal: in `wt list`, branch names are
-bold (green for the worktree you're in), hashes and paths are dimmed, and
-`locked`/`prunable` show as cyan/yellow inline tags — the tags are words,
-so they survive piping. `wt du` colors its header and TOTAL row. Disable
-with `--no-color` or the [`NO_COLOR`](https://no-color.org) environment
-variable; piped output is always plain text.
+Output is colored when stdout is a terminal: in `wt list` and the pickers,
+worktree names are bright, branches green, commit metadata gray, merge
+status green (merged) or yellow (not merged), and `locked`/`prunable` show
+as cyan/yellow inline tags — every status is also a plain word, so piped
+output keeps the information. `wt du` colors its header and TOTAL row.
+Disable with `--no-color` or the [`NO_COLOR`](https://no-color.org)
+environment variable; piped output is always plain text.
 
 Paths under your home directory display as `~/...`; show absolute paths with
 the global `--full-paths` flag or the `full_paths` config setting.

@@ -63,6 +63,41 @@ func IsDirty(dir string) (bool, error) {
 	return out != "", nil
 }
 
+// DefaultBranch returns the repository's default branch: origin's HEAD when
+// set, else main or master when one exists locally, else "main".
+func DefaultBranch(dir string) string {
+	if out, err := Run(dir, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"); err == nil {
+		if b, ok := strings.CutPrefix(out, "origin/"); ok && b != "" {
+			return b
+		}
+	}
+	for _, b := range []string{"main", "master"} {
+		if LocalBranchExists(dir, b) {
+			return b
+		}
+	}
+	return "main"
+}
+
+// ChangeCount returns the number of pending files in the worktree at dir:
+// staged, unstaged, and untracked.
+func ChangeCount(dir string) (int, error) {
+	out, err := Run(dir, "status", "--porcelain")
+	if err != nil {
+		return 0, err
+	}
+	if out == "" {
+		return 0, nil
+	}
+	return len(strings.Split(out, "\n")), nil
+}
+
+// IsAncestor reports whether commit is reachable from ref — i.e. merged.
+func IsAncestor(dir, commit, ref string) bool {
+	_, err := Run(dir, "merge-base", "--is-ancestor", commit, ref)
+	return err == nil
+}
+
 // CommitInfo describes a commit for display.
 type CommitInfo struct {
 	ShortHash string

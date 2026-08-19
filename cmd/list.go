@@ -34,22 +34,20 @@ var listCmd = &cobra.Command{
 		}
 
 		current, _ := gitx.Toplevel(".")
-		width := branchWidth(wts)
+		defBranch := gitx.DefaultBranch(".")
 		infos := worktreeInfos(wts)
 
-		// Two lines per worktree — branch, head, and age, path indented
-		// below — so the output fits a terminal regardless of path length.
 		var b strings.Builder
 		for _, w := range wts {
-			marker := " "
-			branchStyle := ansiBold
+			marker := "  "
 			if current != "" && samePath(current, w.Path) {
-				marker = "*"
-				branchStyle = ansiBold + ansiGreen
+				marker = "* "
 			}
-			entry := worktreeEntry(w, width, infos, branchStyle, false)
-			fmt.Fprintln(&b, strings.TrimRight(marker+" "+entry, " "))
-			fmt.Fprintln(&b, colorText("    "+displayPath(w.Path), ansiDim))
+			line1, line2 := worktreeLines(w, infos, defBranch, gatherFacts(w, defBranch), 60)
+			fmt.Fprintln(&b, marker+line1)
+			if line2 != "" {
+				fmt.Fprintln(&b, "  "+line2)
+			}
 		}
 		fmt.Print(b.String())
 		return nil
