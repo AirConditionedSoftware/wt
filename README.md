@@ -102,11 +102,25 @@ Config lives at `~/.wt/wt.json`, or wherever `$WT_CONFIG` points. A missing
 file at the default location just means defaults; a missing file at an
 explicit `$WT_CONFIG` path is an error.
 
+The full schema — every option shown, everything optional. All settings can
+be set at the top level (applying to every repo) and overridden per repo:
+
 ```json
 {
   "worktree_dir": "~/worktrees/{repo}/{branch}",
   "default_base": "main",
   "branch_prefix": "peter",
+  "prefix_separator": "/",
+  "copy_hooks": false,
+  "copy_files": [".env*"],
+  "vscode_open": false,
+  "vscode_workspace_file": false,
+  "vscode_workspace_prefix": "ws-",
+  "vscode_window_title": "${rootName} — ${activeEditorShort}",
+  "workspace_paths": [
+    { "name": "notes", "path": "~/notes" }
+  ],
+  "full_paths": false,
   "repos": [
     {
       "name": "myapp",
@@ -120,15 +134,22 @@ explicit `$WT_CONFIG` path is an error.
       "vscode_open": true,
       "vscode_workspace_file": true,
       "vscode_workspace_prefix": "acs-",
-      "vscode_window_title": "myapp — ${activeEditorShort}",
+      "vscode_window_title": "myapp — ${activeEditorShort}${separator}${branchName}",
       "workspace_paths": [
         { "name": "docs", "path": "~/notes/myapp" },
         { "path": "~/code/shared-lib" }
-      ]
+      ],
+      "full_paths": true
     }
   ]
 }
 ```
+
+One nuance when overriding: an explicit `false` in a repo entry *does*
+override a top-level `true` for the boolean fields (`copy_hooks`,
+`vscode_open`, `vscode_workspace_file`, `full_paths`), and `"copy_files": []`
+clears an inherited list — but an empty *string* is treated as unset and
+falls through.
 
 - `worktree_dir` — path template for new worktrees. `{repo}` is the directory
   basename of the main worktree, `{branch}` is the branch name with `/`
@@ -190,6 +211,24 @@ explicit `$WT_CONFIG` path is an error.
 - `repos` — per-repository overrides, explained below.
 
 Unknown keys are rejected so typos fail loudly.
+
+### Command-line flags with config equivalents
+
+Flags always win over the config for that one invocation:
+
+| flag                             | config field    | notes                                                                                    |
+| -------------------------------- | --------------- | ---------------------------------------------------------------------------------------- |
+| `wt add --base <ref>`            | `default_base`  | one-off base for the new branch                                                           |
+| `wt add --path <dir>`            | `worktree_dir`  | flag is a literal one-off location; the config field is a `{repo}`/`{branch}` template    |
+| `wt add --no-prefix`             | `branch_prefix` | skips the configured prefix once                                                          |
+| `wt add --copy-hooks` / `--no-copy-hooks` | `copy_hooks` | force hook copying on or off once                                                |
+| `wt add --copy-file <glob>` / `--no-copy-files` | `copy_files` | `--copy-file` (repeatable) adds one-off entries; `--no-copy-files` skips the config list |
+| `wt add --open` / `--no-open`    | `vscode_open`   | force opening in VS Code on or off once                                                   |
+| `--full-paths` (any command)     | `full_paths`    | show absolute paths instead of `~`                                                        |
+
+`--no-color` and `wt remove --force` are flag-only; `vscode_workspace_file`,
+`vscode_workspace_prefix`, `vscode_window_title`, `workspace_paths`, and
+`prefix_separator` are config-only.
 
 ### Per-repository overrides (`repos`)
 
