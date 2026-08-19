@@ -900,6 +900,152 @@ func TestEndToEnd(t *testing.T) {
 		}
 	})
 
+	// The repo-local config lives in the main worktree and is deleted again
+	// by each subtest, so it cannot leak into the ones that follow.
+	localCfg := filepath.Join(repo, ".wt.json")
+
+	t.Run(".wt.json overrides global repos entry", func(t *testing.T) {
+		cfgLocal := filepath.Join(work, "wt-local.json")
+		cfgJSON := `{
+  "worktree_dir": "` + trees + `/{repo}/{branch}",
+  "repos": [{"name": "myapp", "path": "` + repo + `", "worktree_dir": "` + trees + `/trees-A/{branch}", "branch_prefix": "team"}]
+}`
+		if err := os.WriteFile(cfgLocal, []byte(cfgJSON), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		localJSON := `{
+  "name": "localname",
+  "worktree_dir": "` + trees + `/local-{repo}/{branch}",
+  "branch_prefix": "local"
+}`
+		if err := os.WriteFile(localCfg, []byte(localJSON), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(localCfg)
+
+		out, stderr, err := wt(t, home, cfgLocal, repo, "add", "wtj-test")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		want := filepath.Join(trees, "local-localname", "local-wtj-test")
+		if out != want {
+			t.Errorf("stdout = %q; want %q from .wt.json", out, want)
+		}
+		if got := git(t, home, out, "rev-parse", "--abbrev-ref", "HEAD"); got != "local/wtj-test" {
+			t.Errorf("checked-out branch = %q; want local/wtj-test", got)
+		}
+		if _, stderr, err := wt(t, home, cfgLocal, repo, "remove", "local/wtj-test"); err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+	})
+
+	t.Run("repo post_create requires approval", func(t *testing.T) {
+		trustFile := filepath.Join(home, ".wt", "trust.json")
+		defer func() {
+			os.Remove(localCfg)
+			os.Remove(trustFile)
+		}()
+		writeLocal := func(command string) {
+			t.Helper()
+			if err := os.WriteFile(localCfg, []byte(`{"post_create": ["`+command+`"]}`), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		const approvedCmd = "echo ran > pc-marker.txt"
+		writeLocal(approvedCmd)
+
+		// Unapproved: the worktree is created, the commands are not run.
+		out, stderr, err := wt(t, home, cfg, repo, "add", "pc-unapproved")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		if !strings.Contains(stderr, "not approved") {
+			t.Errorf("stderr = %q; want a not-approved warning", stderr)
+		}
+		if _, err := os.Stat(filepath.Join(out, "pc-marker.txt")); !os.IsNotExist(err) {
+			t.Error("unapproved repo post_create ran")
+		}
+		if _, err := os.Stat(out); err != nil {
+			t.Errorf("worktree should still be created: %v", err)
+		}
+
+		// Approving the exact command list makes it run without prompting.
+		mainPath, err := filepath.EvalSymlinks(repo)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Dir(trustFile), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		trustJSON := `{"repos":{"` + mainPath + `":{"post_create":["` + approvedCmd + `"],"approved_at":"2026-01-01T00:00:00Z"}}}`
+		if err := os.WriteFile(trustFile, []byte(trustJSON), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		out, stderr, err = wt(t, home, cfg, repo, "add", "pc-trusted")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		if _, err := os.Stat(filepath.Join(out, "pc-marker.txt")); err != nil {
+			t.Errorf("approved repo post_create did not run: %v", err)
+		}
+
+		// Changing the commands invalidates the approval.
+		writeLocal("echo changed > pc-marker.txt")
+		out, stderr, err = wt(t, home, cfg, repo, "add", "pc-changed")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		if !strings.Contains(stderr, "not approved") {
+			t.Errorf("stderr = %q; want a not-approved warning after the commands changed", stderr)
+		}
+		if _, err := os.Stat(filepath.Join(out, "pc-marker.txt")); !os.IsNotExist(err) {
+			t.Error("changed repo post_create ran without re-approval")
+		}
+	})
+
+	t.Run(".wt.json with repos key fails add but not list", func(t *testing.T) {
+		if err := os.WriteFile(localCfg, []byte(`{"repos": []}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(localCfg)
+
+		_, stderr, err := wt(t, home, cfg, repo, "add", "wtj-invalid")
+		if err == nil {
+			t.Fatal("expected error for a .wt.json with a repos key")
+		}
+		if !strings.Contains(stderr, ".wt.json") {
+			t.Errorf("stderr = %q; want the repo-local file named", stderr)
+		}
+		if _, stderr, err := wt(t, home, cfg, repo, "list"); err != nil {
+			t.Errorf("list should survive a broken .wt.json: %v\n%s", err, stderr)
+		}
+	})
+
+	t.Run("wt config prints repo-local file", func(t *testing.T) {
+		localJSON := `{"branch_prefix": "local"}`
+		if err := os.WriteFile(localCfg, []byte(localJSON+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(localCfg)
+
+		// git reports symlink-resolved paths, and so does the header.
+		resolved, err := filepath.EvalSymlinks(localCfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out, stderr, err := wt(t, home, cfg, repo, "config")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		if !strings.Contains(stderr, resolved) || !strings.Contains(stderr, "repo-local") {
+			t.Errorf("stderr = %q; want the .wt.json path marked repo-local", stderr)
+		}
+		if !strings.Contains(out, localJSON) {
+			t.Errorf("stdout = %q; want the repo-local content %q", out, localJSON)
+		}
+	})
+
 	t.Run("prune cleans up stale worktrees", func(t *testing.T) {
 		out, _, err := wt(t, home, cfg, repo, "add", "doomed")
 		if err != nil {

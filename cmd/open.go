@@ -31,11 +31,11 @@ func runOpen(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cfg, err := config.Load()
+	res, err := config.Resolve(wts[0].Path)
 	if err != nil {
 		return err
 	}
-	settings, _ := cfg.ForPath(wts[0].Path)
+	settings := res.Settings
 	applyDisplayConfig(settings)
 	if !settings.VSCodeOpenEnabled() {
 		cfgPath, _, _ := config.Path()

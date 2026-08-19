@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -150,6 +151,194 @@ func TestLoadRepoMissingPathFails(t *testing.T) {
 	_, err := Load()
 	if err == nil || !strings.Contains(err.Error(), "path") {
 		t.Errorf("Load() with pathless repos entry: err = %v; want missing-path error", err)
+	}
+}
+
+// writeGlobalForRepo writes a global config whose repos entry matches main,
+// points $WT_CONFIG at it, and returns the settings that entry resolves to
+// with no .wt.json present.
+func writeGlobalForRepo(t *testing.T, main string) Settings {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "wt.json")
+	content := fmt.Sprintf(`{
+  "worktree_dir": "/global/{repo}/{branch}",
+  "default_base": "main",
+  "branch_prefix": "peter",
+  "copy_hooks": true,
+  "copy_files": [".env"],
+  "repos": [
+    {"name": "entryname", "path": %q, "default_base": "develop", "prefix_separator": "_", "copy_files": [".env", ".env.local"], "post_create": ["global setup"]}
+  ]
+}`, main)
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(EnvVar, p)
+	return Settings{
+		WorktreeDir:     "/global/{repo}/{branch}",
+		DefaultBase:     "develop",
+		BranchPrefix:    "peter",
+		PrefixSeparator: "_",
+		CopyHooks:       boolPtr(true),
+		CopyFiles:       []string{".env", ".env.local"},
+		PostCreate:      []string{"global setup"},
+	}
+}
+
+func TestResolveLayers(t *testing.T) {
+	main := t.TempDir()
+	entry := writeGlobalForRepo(t, main)
+	localPath := filepath.Join(main, LocalFileName)
+
+	tests := []struct {
+		name  string
+		local string // .wt.json content; "" means no file
+		want  Resolved
+	}{
+		{
+			name:  "no local file matches ForPath",
+			local: "",
+			want:  Resolved{Settings: entry, RepoName: "entryname"},
+		},
+		{
+			name:  "empty local file changes nothing but provenance",
+			local: `{}`,
+			want:  Resolved{Settings: entry, RepoName: "entryname", LocalFile: localPath},
+		},
+		{
+			name:  "local overrides global top-level and repos entry",
+			local: `{"name": "localname", "worktree_dir": "/local/{branch}", "branch_prefix": "team", "copy_hooks": false, "copy_files": ["only.local"], "vscode_workspace_file": true, "post_create": ["npm ci"]}`,
+			want: Resolved{
+				Settings: Settings{
+					WorktreeDir:         "/local/{branch}",
+					DefaultBase:         "develop", // from the repos entry
+					BranchPrefix:        "team",
+					PrefixSeparator:     "_", // from the repos entry
+					CopyHooks:           boolPtr(false),
+					CopyFiles:           []string{"only.local"},
+					VSCodeWorkspaceFile: boolPtr(true),
+					PostCreate:          []string{"npm ci"},
+				},
+				RepoName:           "localname",
+				LocalFile:          localPath,
+				PostCreateFromRepo: true,
+			},
+		},
+		{
+			name:  "empty post_create list clears and still counts as repo-sourced",
+			local: `{"post_create": []}`,
+			want: Resolved{
+				Settings: Settings{
+					WorktreeDir:     entry.WorktreeDir,
+					DefaultBase:     entry.DefaultBase,
+					BranchPrefix:    entry.BranchPrefix,
+					PrefixSeparator: entry.PrefixSeparator,
+					CopyHooks:       boolPtr(true),
+					CopyFiles:       []string{".env", ".env.local"},
+					PostCreate:      []string{},
+				},
+				RepoName:           "entryname",
+				LocalFile:          localPath,
+				PostCreateFromRepo: true,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.local == "" {
+				if err := os.RemoveAll(localPath); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := os.WriteFile(localPath, []byte(tt.local), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			got, err := Resolve(main)
+			if err != nil {
+				t.Fatalf("Resolve(%q): %v", main, err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Resolve() = %+v; want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveWithoutLocalMatchesForPath(t *testing.T) {
+	main := t.TempDir()
+	writeGlobalForRepo(t, main)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, wantName := cfg.ForPath(main)
+	got, err := Resolve(main)
+	if err != nil {
+		t.Fatalf("Resolve(%q): %v", main, err)
+	}
+	if !reflect.DeepEqual(got.Settings, want) || got.RepoName != wantName {
+		t.Errorf("Resolve() = %+v, %q; want ForPath result %+v, %q", got.Settings, got.RepoName, want, wantName)
+	}
+	if got.LocalFile != "" || got.PostCreateFromRepo {
+		t.Errorf("Resolve() with no .wt.json: LocalFile = %q, PostCreateFromRepo = %v; want \"\", false", got.LocalFile, got.PostCreateFromRepo)
+	}
+}
+
+func TestResolveNoGlobalConfig(t *testing.T) {
+	t.Setenv(EnvVar, "")
+	t.Setenv("HOME", t.TempDir())
+	main := t.TempDir()
+	content := `{"name": "solo", "branch_prefix": "team", "post_create": ["make setup"]}`
+	if err := os.WriteFile(filepath.Join(main, LocalFileName), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Resolve(main)
+	if err != nil {
+		t.Fatalf("Resolve(%q): %v", main, err)
+	}
+	want := Resolved{
+		Settings:           Settings{WorktreeDir: DefaultWorktreeDir, BranchPrefix: "team", PostCreate: []string{"make setup"}},
+		RepoName:           "solo",
+		LocalFile:          filepath.Join(main, LocalFileName),
+		PostCreateFromRepo: true,
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Resolve() = %+v; want %+v", got, want)
+	}
+}
+
+func TestResolveLocalErrors(t *testing.T) {
+	tests := []struct {
+		name, content, wantSubstr string
+	}{
+		{"repos key rejected", `{"repos": [{"path": "/x"}]}`, "repos"},
+		{"path key rejected", `{"path": "/x"}`, "path"},
+		{"unknown field rejected", `{"worktre_dir": "/x"}`, "worktre_dir"},
+		{"malformed json", `{"branch_prefix": `, "repo config"},
+		{"pathless workspace_paths", `{"workspace_paths": [{"name": "docs"}]}`, "workspace_paths"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(EnvVar, "")
+			t.Setenv("HOME", t.TempDir())
+			main := t.TempDir()
+			if err := os.WriteFile(filepath.Join(main, LocalFileName), []byte(tt.content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			_, err := Resolve(main)
+			if err == nil {
+				t.Fatalf("Resolve() with %s should fail", tt.content)
+			}
+			if !strings.Contains(err.Error(), tt.wantSubstr) || !strings.Contains(err.Error(), LocalFileName) {
+				t.Errorf("Resolve() err = %v; want it to mention %q and %q", err, tt.wantSubstr, LocalFileName)
+			}
+		})
+	}
+}
+
+func TestResolveGlobalConfigErrorPropagates(t *testing.T) {
+	t.Setenv(EnvVar, filepath.Join(t.TempDir(), "nope.json"))
+	if _, err := Resolve(t.TempDir()); err == nil {
+		t.Error("Resolve() with a missing $WT_CONFIG file should fail")
 	}
 }
 
