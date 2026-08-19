@@ -20,6 +20,7 @@ var stdoutIsTerminal = func() bool {
 const (
 	ansiReset  = "\x1b[0m"
 	ansiBold   = "\x1b[1m"
+	ansiDim    = "\x1b[2m"
 	ansiGreen  = "\x1b[32m"
 	ansiYellow = "\x1b[33m"
 	ansiCyan   = "\x1b[36m"
@@ -30,6 +31,13 @@ func colorsEnabled() bool {
 		return false
 	}
 	return stdoutIsTerminal()
+}
+
+// colorText styles an inline segment. Safe only where column widths are
+// computed BEFORE styling — tabwriter-formatted output must use colorLine
+// on whole lines instead.
+func colorText(s, style string) string {
+	return colorLine(s, style)
 }
 
 // colorLine wraps a complete, already-formatted line in an ANSI style.
