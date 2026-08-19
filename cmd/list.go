@@ -42,32 +42,38 @@ var listCmd = &cobra.Command{
 		}
 
 		// Two lines per worktree — branch and head, path indented below —
-		// so the output fits a terminal regardless of path length.
+		// so the output fits a terminal regardless of path length. The
+		// branch carries the weight (bold; green when current), hash and
+		// path are dimmed, and the rare locked/prunable states are inline
+		// tags — words, so they survive piping too.
 		var b strings.Builder
-		var styles []string
 		for _, w := range wts {
 			marker := " "
+			branchStyle := ansiBold
 			if current != "" && samePath(current, w.Path) {
 				marker = "*"
+				branchStyle = ansiBold + ansiGreen
 			}
 			head := w.Head
 			if len(head) > 8 {
 				head = head[:8]
 			}
-			style := ""
-			switch {
-			case w.Prunable:
-				style = ansiYellow
-			case w.Locked:
-				style = ansiCyan
-			case marker == "*":
-				style = ansiGreen
+
+			line := colorText(fmt.Sprintf("%s %-*s", marker, width, branchLabel(w)), branchStyle)
+			if head != "" {
+				line += colorText("  "+head, ansiDim)
 			}
-			line := strings.TrimRight(fmt.Sprintf("%s %-*s  %s", marker, width, branchLabel(w), head), " ")
-			fmt.Fprintf(&b, "%s\n    %s\n", line, displayPath(w.Path))
-			styles = append(styles, style, style)
+			if w.Locked {
+				line += colorText("  locked", ansiCyan)
+			}
+			if w.Prunable {
+				line += colorText("  prunable", ansiYellow)
+			}
+			fmt.Fprintln(&b, strings.TrimRight(line, " "))
+			fmt.Fprintln(&b, colorText("    "+displayPath(w.Path), ansiDim))
 		}
-		return printStyled(os.Stdout, b.String(), styles)
+		fmt.Print(b.String())
+		return nil
 	},
 }
 

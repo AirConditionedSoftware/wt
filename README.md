@@ -38,8 +38,7 @@ go install github.com/AirConditionedSoftware/wt@latest
 - `wt list [--json]` — list all worktrees of the current repository, two
   lines per worktree (branch and short HEAD, path indented below) so long
   paths never blow out the width. The `*` marks the worktree you're in;
-  locked and prunable worktrees are color-coded (and carry flags in
-  `--json`).
+  locked and prunable worktrees carry inline tags (and flags in `--json`).
 - `wt add <branch> [--base <ref>] [--path <dir>]` — create a worktree:
   - branch exists locally → checked out as-is
   - branch exists on `origin` → local branch created tracking it (fetches
@@ -73,9 +72,9 @@ go install github.com/AirConditionedSoftware/wt@latest
   worktree has one, the folder otherwise. Only available when `vscode_open`
   is enabled for the repo — without it the command tells you what to set.
 - `wt prune [--dry-run]` — clean up git's bookkeeping for stale worktrees,
-  i.e. entries whose directories were deleted manually (highlighted in
-  `wt list`, flagged in `wt list --json`). Prints what it prunes; branches
-  and existing directories are untouched.
+  i.e. entries whose directories were deleted manually (tagged `prunable`
+  in `wt list`). Prints what it prunes; branches and existing directories
+  are untouched.
 - `wt du [--unit KB|MB|GB]` (alias: `wt disk`) — disk space used by each
   worktree, largest first, plus a total. Sizes count the working files (the
   shared repository database in `.git` isn't attributed to any worktree);
@@ -101,10 +100,12 @@ go install github.com/AirConditionedSoftware/wt@latest
   `wt completion <bash|zsh|fish|powershell>` prints the raw script that the
   installed line sources.
 
-Tables are colored when stdout is a terminal — the worktree you're in is
-green, prunable rows yellow, locked rows cyan. Disable with `--no-color` or
-the [`NO_COLOR`](https://no-color.org) environment variable; piped output is
-always plain.
+Output is colored when stdout is a terminal: in `wt list`, branch names are
+bold (green for the worktree you're in), hashes and paths are dimmed, and
+`locked`/`prunable` show as cyan/yellow inline tags — the tags are words,
+so they survive piping. `wt du` colors its header and TOTAL row. Disable
+with `--no-color` or the [`NO_COLOR`](https://no-color.org) environment
+variable; piped output is always plain text.
 
 Paths under your home directory display as `~/...`; show absolute paths with
 the global `--full-paths` flag or the `full_paths` config setting.
