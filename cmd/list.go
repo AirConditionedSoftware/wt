@@ -1,13 +1,11 @@
 package cmd
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/AirConditionedSoftware/wt/internal/config"
 	"github.com/AirConditionedSoftware/wt/internal/gitx"
@@ -36,32 +34,25 @@ var listCmd = &cobra.Command{
 		}
 
 		current, _ := gitx.Toplevel(".")
-		var buf bytes.Buffer
-		tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
-		styles := []string{ansiBold}
-		fmt.Fprintln(tw, "  BRANCH\tPATH\tHEAD\tSTATUS")
+		width := 0
+		for _, w := range wts {
+			if l := len(branchLabel(w)); l > width {
+				width = l
+			}
+		}
+
+		// Two lines per worktree — branch and head, path indented below —
+		// so the output fits a terminal regardless of path length.
+		var b strings.Builder
+		var styles []string
 		for _, w := range wts {
 			marker := " "
 			if current != "" && samePath(current, w.Path) {
 				marker = "*"
 			}
-			branch := w.Branch
-			switch {
-			case w.Bare:
-				branch = "(bare)"
-			case w.Detached:
-				branch = "(detached)"
-			}
 			head := w.Head
 			if len(head) > 8 {
 				head = head[:8]
-			}
-			var status []string
-			if w.Locked {
-				status = append(status, "locked")
-			}
-			if w.Prunable {
-				status = append(status, "prunable")
 			}
 			style := ""
 			switch {
@@ -72,13 +63,11 @@ var listCmd = &cobra.Command{
 			case marker == "*":
 				style = ansiGreen
 			}
-			styles = append(styles, style)
-			fmt.Fprintf(tw, "%s %s\t%s\t%s\t%s\n", marker, branch, displayPath(w.Path), head, strings.Join(status, ","))
+			line := strings.TrimRight(fmt.Sprintf("%s %-*s  %s", marker, width, branchLabel(w), head), " ")
+			fmt.Fprintf(&b, "%s\n    %s\n", line, displayPath(w.Path))
+			styles = append(styles, style, style)
 		}
-		if err := tw.Flush(); err != nil {
-			return err
-		}
-		return printStyled(os.Stdout, buf.String(), styles)
+		return printStyled(os.Stdout, b.String(), styles)
 	},
 }
 

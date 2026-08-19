@@ -13,9 +13,10 @@ Creating worktree with new branch "feature/login" from main
 /Users/you/worktrees/myapp/feature-login
 
 $ wt list
-  BRANCH         PATH                                         HEAD      STATUS
-* main           /Users/you/code/myapp                        1a2b3c4d
-  feature/login  /Users/you/worktrees/myapp/feature-login     1a2b3c4d
+* main           1a2b3c4d
+    ~/code/myapp
+  feature/login  1a2b3c4d
+    ~/worktrees/myapp/feature-login
 ```
 
 ## Install
@@ -34,8 +35,11 @@ go install github.com/AirConditionedSoftware/wt@latest
 
 ## Usage
 
-- `wt list [--json]` — list all worktrees of the current repository. The `*`
-  marks the worktree you're in.
+- `wt list [--json]` — list all worktrees of the current repository, two
+  lines per worktree (branch and short HEAD, path indented below) so long
+  paths never blow out the width. The `*` marks the worktree you're in;
+  locked and prunable worktrees are color-coded (and carry flags in
+  `--json`).
 - `wt add <branch> [--base <ref>] [--path <dir>]` — create a worktree:
   - branch exists locally → checked out as-is
   - branch exists on `origin` → local branch created tracking it (fetches
@@ -69,9 +73,9 @@ go install github.com/AirConditionedSoftware/wt@latest
   worktree has one, the folder otherwise. Only available when `vscode_open`
   is enabled for the repo — without it the command tells you what to set.
 - `wt prune [--dry-run]` — clean up git's bookkeeping for stale worktrees,
-  i.e. entries whose directories were deleted manually (shown as `prunable`
-  in `wt list`). Prints what it prunes; branches and existing directories
-  are untouched.
+  i.e. entries whose directories were deleted manually (highlighted in
+  `wt list`, flagged in `wt list --json`). Prints what it prunes; branches
+  and existing directories are untouched.
 - `wt du [--unit KB|MB|GB]` (alias: `wt disk`) — disk space used by each
   worktree, largest first, plus a total. Sizes count the working files (the
   shared repository database in `.git` isn't attributed to any worktree);
