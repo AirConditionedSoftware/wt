@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -30,7 +31,9 @@ var listCmd = &cobra.Command{
 		}
 
 		current, _ := gitx.Toplevel(".")
-		tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		var buf bytes.Buffer
+		tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+		styles := []string{ansiBold}
 		fmt.Fprintln(tw, "  BRANCH\tPATH\tHEAD\tSTATUS")
 		for _, w := range wts {
 			marker := " "
@@ -55,9 +58,22 @@ var listCmd = &cobra.Command{
 			if w.Prunable {
 				status = append(status, "prunable")
 			}
+			style := ""
+			switch {
+			case w.Prunable:
+				style = ansiYellow
+			case w.Locked:
+				style = ansiCyan
+			case marker == "*":
+				style = ansiGreen
+			}
+			styles = append(styles, style)
 			fmt.Fprintf(tw, "%s %s\t%s\t%s\t%s\n", marker, branch, w.Path, head, strings.Join(status, ","))
 		}
-		return tw.Flush()
+		if err := tw.Flush(); err != nil {
+			return err
+		}
+		return printStyled(os.Stdout, buf.String(), styles)
 	},
 }
 
