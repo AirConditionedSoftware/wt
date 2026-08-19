@@ -104,6 +104,16 @@ func worktreeLines(w gitx.Worktree, infos map[string]gitx.CommitInfo, defBranch 
 	return name, meta
 }
 
+// worktreeOption renders the two-line rich entry as a picker label — the
+// name/branch line with the metadata line underneath, matching wt list.
+func worktreeOption(w gitx.Worktree, infos map[string]gitx.CommitInfo, defBranch string, subjectLimit int) string {
+	line1, line2 := worktreeLines(w, infos, defBranch, gatherFacts(w, defBranch), subjectLimit)
+	if line2 == "" {
+		return line1
+	}
+	return line1 + "\n  " + line2
+}
+
 // worktreeInfos fetches commit display info for the worktrees, skipping
 // headless (bare) entries. Best-effort: on error the entries just render
 // without subjects and ages.

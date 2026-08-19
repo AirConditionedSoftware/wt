@@ -74,12 +74,7 @@ func removeInteractive() error {
 	defBranch := gitx.DefaultBranch(".")
 	opts := make([]huh.Option[string], 0, len(candidates))
 	for _, w := range candidates {
-		line1, line2 := worktreeLines(w, infos, defBranch, gatherFacts(w, defBranch), 40)
-		label := line1
-		if line2 != "" {
-			label += "  " + line2
-		}
-		opts = append(opts, huh.NewOption(label, w.Path))
+		opts = append(opts, huh.NewOption(worktreeOption(w, infos, defBranch, 40), w.Path))
 	}
 
 	var selected []string
