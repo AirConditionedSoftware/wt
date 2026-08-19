@@ -81,9 +81,16 @@ go install github.com/AirConditionedSoftware/wt@latest
   file exists, and fails loudly if the file is invalid. Run inside a repo
   that has a `.wtrc`, it prints and validates that file too, after the
   global one.
-- `wt init` — create a starter repo-local `.wtrc` at the main worktree
-  root (refuses to overwrite an existing one) and print its path, so
-  `$EDITOR "$(wt init)"` opens it. See "Repo-local config" below.
+- `wt init [flags]` — create a starter repo-local `.wtrc` at the main
+  worktree root (refuses to overwrite an existing one) and print its path,
+  so `$EDITOR "$(wt init)"` opens it. Flags pre-fill fields — `--name`,
+  `--worktree-dir`, `--base`, `--prefix`, `--separator`, the repeatable
+  `--copy-file` and `--post-create`, and the booleans `--copy-hooks`,
+  `--open`, `--workspace-file` (written as `true` only when passed; an
+  explicit `--copy-hooks=false` writes `false`, which overrides a global
+  `true`) — as in
+  `wt init --prefix peter --separator - --base develop`. See "Repo-local
+  config" below.
 - `wt completion` — interactive wizard that sets up shell completion: pick
   your shell (preselected from `$SHELL`), get the line to add to its startup
   file copied to your clipboard, and the steps to finish.
@@ -270,6 +277,8 @@ whenever wt runs from any of the repo's worktrees — wt finds the main
 worktree through git. No file means nothing changes. `wt init` scaffolds
 one (writing to the main worktree root even when run from a linked
 worktree) and prints its path, so `$EDITOR "$(wt init)"` opens it directly.
+Its flags pre-fill fields, e.g.
+`wt init --prefix peter --separator - --base develop`.
 
 It holds the same settings fields as the global config, plus `name` (what
 `{repo}` expands to). `repos` and `path` are rejected, because the file
@@ -286,6 +295,9 @@ repo, it can be committed and shared with a team:
   "post_create": ["npm ci"]
 }
 ```
+
+A ready-made starting point lives at [examples/.wtrc](examples/.wtrc) — copy
+it to the repo root (`cp examples/.wtrc .wtrc`) and trim what you don't need.
 
 `.wtrc` is the **top layer**: its values override both the global
 top-level fields and the repo's global `repos` entry, field by field, with

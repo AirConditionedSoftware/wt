@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -1087,6 +1088,77 @@ func TestEndToEnd(t *testing.T) {
 		}
 		if _, err := os.Stat(filepath.Join(linked, ".wtrc")); !os.IsNotExist(err) {
 			t.Error(".wtrc must not be created inside the linked worktree")
+		}
+	})
+
+	t.Run("init flags pre-fill the scaffolded .wtrc", func(t *testing.T) {
+		wtrc := filepath.Join(repo, ".wtrc")
+		t.Cleanup(func() { os.Remove(wtrc) })
+		// Each init refuses to overwrite, so start from a clean slate.
+		scaffold := func(args ...string) []byte {
+			t.Helper()
+			os.Remove(wtrc)
+			if _, stderr, err := wt(t, home, cfg, repo, append([]string{"init"}, args...)...); err != nil {
+				t.Fatalf("wt init %v: %v\n%s", args, err, stderr)
+			}
+			data, err := os.ReadFile(wtrc)
+			if err != nil {
+				t.Fatalf("wt init %v did not create the file: %v", args, err)
+			}
+			return data
+		}
+
+		data := scaffold("--prefix", "team", "--separator", "-", "--base", "develop",
+			"--copy-file", ".env*", "--copy-file", "local-conf",
+			"--post-create", "npm ci", "--copy-hooks", "--open")
+		var got struct {
+			Name            string   `json:"name"`
+			BranchPrefix    string   `json:"branch_prefix"`
+			PrefixSeparator string   `json:"prefix_separator"`
+			DefaultBase     string   `json:"default_base"`
+			CopyFiles       []string `json:"copy_files"`
+			PostCreate      []string `json:"post_create"`
+			CopyHooks       bool     `json:"copy_hooks"`
+			VSCodeOpen      bool     `json:"vscode_open"`
+		}
+		if err := json.Unmarshal(data, &got); err != nil {
+			t.Fatalf("unmarshal %s: %v", data, err)
+		}
+		if got.Name != "myapp" {
+			t.Errorf("name = %q; want the directory basename myapp", got.Name)
+		}
+		if got.BranchPrefix != "team" || got.PrefixSeparator != "-" || got.DefaultBase != "develop" {
+			t.Errorf("prefix/separator/base = %q/%q/%q; want team/-/develop", got.BranchPrefix, got.PrefixSeparator, got.DefaultBase)
+		}
+		if !slices.Equal(got.CopyFiles, []string{".env*", "local-conf"}) {
+			t.Errorf("copy_files = %q; want [.env* local-conf]", got.CopyFiles)
+		}
+		if !slices.Equal(got.PostCreate, []string{"npm ci"}) {
+			t.Errorf("post_create = %q; want [npm ci]", got.PostCreate)
+		}
+		if !got.CopyHooks || !got.VSCodeOpen {
+			t.Errorf("copy_hooks/vscode_open = %v/%v; want both true", got.CopyHooks, got.VSCodeOpen)
+		}
+		// A bool flag that was not passed leaves its field out entirely.
+		var raw map[string]any
+		if err := json.Unmarshal(data, &raw); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := raw["vscode_workspace_file"]; ok {
+			t.Errorf(".wtrc = %s; want no vscode_workspace_file when --workspace-file is absent", data)
+		}
+
+		data = scaffold("--name", "custom")
+		var named struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(data, &named); err != nil || named.Name != "custom" {
+			t.Errorf(".wtrc = %s (err %v); want name custom", data, err)
+		}
+
+		// Without flags the output is unchanged from before they existed.
+		if data, want := scaffold(), "{\n  \"name\": \"myapp\"\n}\n"; string(data) != want {
+			t.Errorf("flagless init wrote %q; want %q", data, want)
 		}
 	})
 

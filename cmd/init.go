@@ -11,6 +11,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	initName          string
+	initWorktreeDir   string
+	initBase          string
+	initPrefix        string
+	initSeparator     string
+	initCopyFile      []string
+	initPostCreate    []string
+	initCopyHooks     bool
+	initOpen          bool
+	initWorkspaceFile bool
+)
+
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Create a repo-local .wtrc",
@@ -18,6 +31,11 @@ var initCmd = &cobra.Command{
 even when run from a linked worktree, since that is where wt reads it from.
 The file holds per-repo settings that override the global config and its
 repos entry; it can be committed to share with a team.
+
+Flags pre-fill fields in the created file; fields whose flag is not given
+are left out, so the file stays a small starting point to edit:
+
+  wt init --prefix peter --separator - --base develop
 
 The created path is the only output on stdout, so $EDITOR "$(wt init)"
 opens it directly.`,
@@ -33,7 +51,26 @@ opens it directly.`,
 			return fmt.Errorf("%s already exists; edit it directly", displayPath(path))
 		}
 
-		starter := config.LocalConfig{Name: filepath.Base(mainPath)}
+		name := initName
+		if name == "" {
+			name = filepath.Base(mainPath)
+		}
+		starter := config.LocalConfig{
+			Name: name,
+			Settings: config.Settings{
+				WorktreeDir:         initWorktreeDir,
+				DefaultBase:         initBase,
+				BranchPrefix:        initPrefix,
+				PrefixSeparator:     initSeparator,
+				CopyFiles:           initCopyFile,
+				PostCreate:          initPostCreate,
+				CopyHooks:           flagBool(cmd, "copy-hooks", &initCopyHooks),
+				VSCodeOpen:          flagBool(cmd, "open", &initOpen),
+				VSCodeWorkspaceFile: flagBool(cmd, "workspace-file", &initWorkspaceFile),
+			},
+		}
+		// The omitempty tags keep unflagged fields out of the file, so a
+		// flagless init still writes just the name.
 		data, err := json.MarshalIndent(starter, "", "  ")
 		if err != nil {
 			return err
@@ -57,6 +94,26 @@ opens it directly.`,
 	},
 }
 
+// flagBool returns v when the named bool flag was passed and nil otherwise,
+// so a flag left alone keeps its field out of the scaffolded file rather than
+// writing a false that would override the global config.
+func flagBool(cmd *cobra.Command, name string, v *bool) *bool {
+	if !cmd.Flags().Changed(name) {
+		return nil
+	}
+	return v
+}
+
 func init() {
+	initCmd.Flags().StringVar(&initName, "name", "", "repo name for {repo} in templates (default: the main worktree's directory name)")
+	initCmd.Flags().StringVar(&initWorktreeDir, "worktree-dir", "", "worktree_dir path template, e.g. ~/worktrees/{repo}/{branch}")
+	initCmd.Flags().StringVar(&initBase, "base", "", "default_base ref for newly created branches")
+	initCmd.Flags().StringVar(&initPrefix, "prefix", "", "branch_prefix prepended to newly created branches")
+	initCmd.Flags().StringVar(&initSeparator, "separator", "", "prefix_separator joining the prefix to the branch name")
+	initCmd.Flags().StringArrayVar(&initCopyFile, "copy-file", nil, "copy_files entry: file or glob to copy into new worktrees; repeatable")
+	initCmd.Flags().StringArrayVar(&initPostCreate, "post-create", nil, "post_create entry: command to run in new worktrees; repeatable")
+	initCmd.Flags().BoolVar(&initCopyHooks, "copy-hooks", false, "set copy_hooks: copy the repo's git hooks into new worktrees")
+	initCmd.Flags().BoolVar(&initOpen, "open", false, "set vscode_open: open new worktrees in VS Code")
+	initCmd.Flags().BoolVar(&initWorkspaceFile, "workspace-file", false, "set vscode_workspace_file: write a .code-workspace file per worktree")
 	rootCmd.AddCommand(initCmd)
 }
