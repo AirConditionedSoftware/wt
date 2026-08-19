@@ -140,6 +140,7 @@ be set at the top level (applying to every repo) and overridden per repo:
   ],
   "full_paths": false,
   "post_create": ["direnv allow"],
+  "update_check": false,
   "repos": [
     {
       "name": "myapp",
@@ -246,6 +247,12 @@ falls through.
   containing shell metacharacters are inert. Do note that a command like
   `npm install` executes the checked-out branch's own install scripts — the
   same risk as running it yourself.
+- `update_check` — opt in to `wt --version` querying GitHub for the latest
+  release and mentioning (on stderr) when a newer one exists. Off by
+  default; wt makes no network calls beyond git otherwise. Failures are
+  silent — a version query never breaks because the network did. Top-level
+  only: this is the one setting a repo's `.wtrc` cannot set, so a cloned
+  repository can never switch on network calls.
 - `repos` — per-repository overrides, explained below.
 
 Unknown keys are rejected so typos fail loudly.

@@ -41,4 +41,9 @@ func Execute(version string) {
 		fmt.Fprintln(os.Stderr, "wt: "+err.Error())
 		os.Exit(1)
 	}
+	if versionRequested(os.Args[1:]) {
+		if notice := updateNotice(version); notice != "" {
+			fmt.Fprintln(os.Stderr, notice)
+		}
+	}
 }
