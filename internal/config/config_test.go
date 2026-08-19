@@ -121,6 +121,33 @@ func TestLoadAndFor(t *testing.T) {
 	}
 }
 
+func TestUpdateCheckTopLevelOnly(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "wt.json")
+	if err := os.WriteFile(p, []byte(`{"update_check": true}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(EnvVar, p)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.UpdateCheckEnabled() {
+		t.Error("update_check: true should enable the check")
+	}
+	if (&File{}).UpdateCheckEnabled() {
+		t.Error("update check must be off by default")
+	}
+
+	// A repo's .wtrc must not be able to switch on network calls.
+	repo := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repo, LocalFileName), []byte(`{"update_check": true}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Resolve(repo); err == nil || !strings.Contains(err.Error(), "update_check") {
+		t.Errorf("Resolve with update_check in .wtrc: err = %v; want unknown-field rejection", err)
+	}
+}
+
 func TestForPathBuiltinDefaults(t *testing.T) {
 	cfg := &File{}
 	got, name := cfg.ForPath("/nowhere")

@@ -95,6 +95,15 @@ type RepoConfig struct {
 type File struct {
 	Settings
 	Repos []RepoConfig `json:"repos,omitempty"`
+	// UpdateCheck lets wt --version query GitHub for a newer release.
+	// Deliberately top-level only — not part of Settings — so a repo's
+	// .wtrc can never turn on network calls.
+	UpdateCheck *bool `json:"update_check,omitempty"`
+}
+
+// UpdateCheckEnabled reports whether update_check is set and true.
+func (f *File) UpdateCheckEnabled() bool {
+	return f.UpdateCheck != nil && *f.UpdateCheck
 }
 
 // LocalFileName is the repo-local config file, read from the root of a
