@@ -65,7 +65,7 @@ database inside .git is not attributed to any worktree.`,
 				total += r.size
 			}
 			styles = append(styles, "")
-			fmt.Fprintf(tw, "%s\t%s\t%s\n", branch, r.wt.Path, sizeStr)
+			fmt.Fprintf(tw, "%s\t%s\t%s\n", branch, displayPath(r.wt.Path), sizeStr)
 		}
 		styles = append(styles, ansiBold)
 		fmt.Fprintf(tw, "TOTAL\t\t%s\n", formatSize(total, unit))

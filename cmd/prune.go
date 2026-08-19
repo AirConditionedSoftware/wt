@@ -42,7 +42,7 @@ have been deleted manually, shown as "prunable" in wt list. Only
 			if reason == "" {
 				reason = "stale"
 			}
-			fmt.Fprintf(os.Stderr, "%s  %s (%s)\n", label, w.Path, reason)
+			fmt.Fprintf(os.Stderr, "%s  %s (%s)\n", label, displayPath(w.Path), reason)
 		}
 
 		noun := "entries"

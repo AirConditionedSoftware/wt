@@ -68,7 +68,7 @@ var listCmd = &cobra.Command{
 				style = ansiGreen
 			}
 			styles = append(styles, style)
-			fmt.Fprintf(tw, "%s %s\t%s\t%s\t%s\n", marker, branch, w.Path, head, strings.Join(status, ","))
+			fmt.Fprintf(tw, "%s %s\t%s\t%s\t%s\n", marker, branch, displayPath(w.Path), head, strings.Join(status, ","))
 		}
 		if err := tw.Flush(); err != nil {
 			return err

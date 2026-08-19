@@ -29,9 +29,9 @@ default location, the built-in defaults are printed instead.`,
 		data, err := os.ReadFile(path)
 		if os.IsNotExist(err) {
 			if explicit {
-				return fmt.Errorf("config %s (%s) does not exist", path, src)
+				return fmt.Errorf("config %s (%s) does not exist", displayPath(path), src)
 			}
-			fmt.Fprintf(os.Stderr, "%s (%s) does not exist; built-in defaults apply:\n", path, src)
+			fmt.Fprintf(os.Stderr, "%s (%s) does not exist; built-in defaults apply:\n", displayPath(path), src)
 			def := config.File{Settings: config.Settings{WorktreeDir: config.DefaultWorktreeDir}}
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
@@ -41,7 +41,7 @@ default location, the built-in defaults are printed instead.`,
 			return err
 		}
 
-		fmt.Fprintf(os.Stderr, "%s (%s)\n", path, src)
+		fmt.Fprintf(os.Stderr, "%s (%s)\n", displayPath(path), src)
 		os.Stdout.Write(data)
 		if len(data) > 0 && data[len(data)-1] != '\n' {
 			fmt.Println()
