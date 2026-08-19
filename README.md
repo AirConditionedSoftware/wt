@@ -81,6 +81,9 @@ go install github.com/AirConditionedSoftware/wt@latest
   file exists, and fails loudly if the file is invalid. Run inside a repo
   that has a `.wt.json`, it prints and validates that file too, after the
   global one.
+- `wt init` — create a starter repo-local `.wt.json` at the main worktree
+  root (refuses to overwrite an existing one) and print its path, so
+  `$EDITOR "$(wt init)"` opens it. See "Repo-local config" below.
 - `wt completion` — interactive wizard that sets up shell completion: pick
   your shell (preselected from `$SHELL`), get the line to add to its startup
   file copied to your clipboard, and the steps to finish.
@@ -264,7 +267,9 @@ Flags always win over the config for that one invocation:
 A repository can keep its own config in a `.wt.json` at the root of its
 **main worktree**. It is never read from a linked worktree, but it applies
 whenever wt runs from any of the repo's worktrees — wt finds the main
-worktree through git. No file means nothing changes.
+worktree through git. No file means nothing changes. `wt init` scaffolds
+one (writing to the main worktree root even when run from a linked
+worktree) and prints its path, so `$EDITOR "$(wt init)"` opens it directly.
 
 It holds the same settings fields as the global config, plus `name` (what
 `{repo}` expands to). `repos` and `path` are rejected, because the file

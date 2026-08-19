@@ -1046,6 +1046,50 @@ func TestEndToEnd(t *testing.T) {
 		}
 	})
 
+	t.Run("init scaffolds a repo-local .wt.json", func(t *testing.T) {
+		out, stderr, err := wt(t, home, cfg, repo, "init")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		wtjson := filepath.Join(repo, ".wt.json")
+		t.Cleanup(func() { os.Remove(wtjson) })
+		data, err := os.ReadFile(wtjson)
+		if err != nil {
+			t.Fatalf(".wt.json not created at the main worktree root: %v", err)
+		}
+		var lc struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(data, &lc); err != nil || lc.Name != "myapp" {
+			t.Errorf(".wt.json = %s (err %v); want name myapp", data, err)
+		}
+		if filepath.Base(out) != ".wt.json" {
+			t.Errorf("stdout = %q; want the created file path", out)
+		}
+
+		if _, stderr, err := wt(t, home, cfg, repo, "init"); err == nil {
+			t.Error("second init should refuse to overwrite")
+		} else if !strings.Contains(stderr, "already exists") {
+			t.Errorf("stderr = %q; want already-exists error", stderr)
+		}
+
+		// From a linked worktree, init still targets the main worktree root.
+		os.Remove(wtjson)
+		linked, _, err := wt(t, home, cfg, repo, "add", "init-linked")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, stderr, err := wt(t, home, cfg, linked, "init"); err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		if _, err := os.Stat(wtjson); err != nil {
+			t.Errorf(".wt.json missing from main worktree after init in linked worktree: %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(linked, ".wt.json")); !os.IsNotExist(err) {
+			t.Error(".wt.json must not be created inside the linked worktree")
+		}
+	})
+
 	t.Run("prune cleans up stale worktrees", func(t *testing.T) {
 		out, _, err := wt(t, home, cfg, repo, "add", "doomed")
 		if err != nil {
