@@ -248,10 +248,11 @@ but not wired up yet.
 
 ## Contributing
 
-Issues and pull requests are welcome. `go test ./...` runs the unit and
-end-to-end tests (a real `git` on PATH is all they need). Keep in mind that
-every push to `main` publishes a release, so changes should land through
-pull requests.
+Issues and pull requests are welcome — see
+[CONTRIBUTING.md](CONTRIBUTING.md) for the project layout and conventions.
+`go test ./...` runs the unit and end-to-end tests (a real `git` on PATH is
+all they need). Keep in mind that every push to `main` publishes a release,
+so changes should land through pull requests.
 
 ## License
 
