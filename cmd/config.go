@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/AirConditionedSoftware/wt/internal/config"
+	"github.com/AirConditionedSoftware/wt/internal/gitx"
 	"github.com/spf13/cobra"
 )
 
@@ -45,6 +47,26 @@ default location, the built-in defaults are printed instead.`,
 		os.Stdout.Write(data)
 		if len(data) > 0 && data[len(data)-1] != '\n' {
 			fmt.Println()
+		}
+
+		// A repo's own .wtrc is part of its effective config, so print it
+		// as a second document (the stdout stream stays jq-parseable).
+		// Outside a repository there is nothing to look for.
+		if wts, err := gitx.ListWorktrees("."); err == nil && len(wts) > 0 {
+			mainPath := wts[0].Path
+			localPath := filepath.Join(mainPath, config.LocalFileName)
+			if local, err := os.ReadFile(localPath); err == nil {
+				fmt.Fprintf(os.Stderr, "%s (repo-local)\n", displayPath(localPath))
+				os.Stdout.Write(local)
+				if len(local) > 0 && local[len(local)-1] != '\n' {
+					fmt.Println()
+				}
+				// Resolve parses the repo-local file, so wt config validates
+				// it just like the global one.
+				if _, err := config.Resolve(mainPath); err != nil {
+					return err
+				}
+			}
 		}
 
 		// Surface parse errors so wt config doubles as a validity check.

@@ -34,9 +34,8 @@ database inside .git is not attributed to any worktree.`,
 		if err != nil {
 			return err
 		}
-		if cfg, err := config.Load(); err == nil {
-			s, _ := cfg.ForPath(wts[0].Path)
-			applyDisplayConfig(s)
+		if res, err := config.Resolve(wts[0].Path); err == nil {
+			applyDisplayConfig(res.Settings)
 		}
 
 		type row struct {

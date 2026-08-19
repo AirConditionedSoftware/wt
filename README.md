@@ -78,7 +78,12 @@ go install github.com/AirConditionedSoftware/wt@latest
   by default each row picks a readable unit, `--unit`/`-u` forces one.
 - `wt config` — print the config file location (stderr) and its content
   (stdout, so `wt config | jq` works). Prints the built-in defaults if no
-  file exists, and fails loudly if the file is invalid.
+  file exists, and fails loudly if the file is invalid. Run inside a repo
+  that has a `.wtrc`, it prints and validates that file too, after the
+  global one.
+- `wt init` — create a starter repo-local `.wtrc` at the main worktree
+  root (refuses to overwrite an existing one) and print its path, so
+  `$EDITOR "$(wt init)"` opens it. See "Repo-local config" below.
 - `wt completion` — interactive wizard that sets up shell completion: pick
   your shell (preselected from `$SHELL`), get the line to add to its startup
   file copied to your clipboard, and the steps to finish.
@@ -153,6 +158,9 @@ be set at the top level (applying to every repo) and overridden per repo:
 }
 ```
 
+A repository can also carry a `.wtrc` of its own, accepting the same
+settings fields plus `name` — see "Repo-local config" below.
+
 One nuance when overriding: an explicit `false` in a repo entry *does*
 override a top-level `true` for the boolean fields (`copy_hooks`,
 `vscode_open`, `vscode_workspace_file`, `full_paths`), and `"copy_files": []`
@@ -222,9 +230,10 @@ falls through.
   runs; the first failure stops the rest and reports it, but the worktree
   survives. Skip once with `--no-post-create`. A repo entry's list
   *replaces* the global one; `[]` disables. **Security posture**: these are
-  arbitrary commands by design, but they come only from this user-owned
-  config file — wt never reads config from inside a repository, so a cloned
-  repo can't inject commands. Worktree metadata reaches the commands as
+  arbitrary commands by design. Commands in this file are user-owned and
+  run as written; commands that come from a repo's `.wtrc` run only
+  after you approve them (see "Repo-local config" below), so a cloned repo
+  can't inject commands silently. Worktree metadata reaches the commands as
   environment variables (`WT_WORKTREE`, `WT_MAIN`, `WT_REPO`, `WT_BRANCH`)
   rather than being interpolated into the command string, so branch names
   containing shell metacharacters are inert. Do note that a command like
@@ -253,6 +262,61 @@ Flags always win over the config for that one invocation:
 `vscode_workspace_prefix`, `vscode_window_title`, `workspace_paths`, and
 `prefix_separator` are config-only.
 
+### Repo-local config (`.wtrc`)
+
+A repository can keep its own config in a `.wtrc` at the root of its
+**main worktree**. It is never read from a linked worktree, but it applies
+whenever wt runs from any of the repo's worktrees — wt finds the main
+worktree through git. No file means nothing changes. `wt init` scaffolds
+one (writing to the main worktree root even when run from a linked
+worktree) and prints its path, so `$EDITOR "$(wt init)"` opens it directly.
+
+It holds the same settings fields as the global config, plus `name` (what
+`{repo}` expands to). `repos` and `path` are rejected, because the file
+already *is* repo-specific; unknown keys fail loudly as usual, and a broken
+`.wtrc` is an error like a broken global config. Since it lives in the
+repo, it can be committed and shared with a team:
+
+```json
+{
+  "name": "myapp",
+  "branch_prefix": "team",
+  "prefix_separator": "-",
+  "vscode_workspace_file": true,
+  "post_create": ["npm ci"]
+}
+```
+
+`.wtrc` is the **top layer**: its values override both the global
+top-level fields and the repo's global `repos` entry, field by field, with
+the same merge rules as everywhere else — an empty string falls through to
+the layer below, a list replaces the list below it, and an explicit `false`
+overrides an inherited `true`.
+
+Because a committed `.wtrc` arrives with the repository, `post_create`
+commands that come from it run only after you approve them. `wt add`
+prompts the first time, showing the commands; approvals are remembered in
+`~/.wt/trust.json`, keyed by the repo's main worktree. Any later change to
+the repo's `post_create` — including one that arrives with a `git pull` —
+prompts again, showing a diff of the approved commands against the new
+ones:
+
+```
+post_create in ~/code/myapp/.wtrc changed:
+
+    direnv allow
+  - npm install
+  + npm ci
+
+Allow these commands to run after wt add? [Allow and remember / Skip this time]
+```
+
+Declining skips `post_create` for that run and nothing else — the worktree
+is still created — and records nothing, so the next run asks again.
+Non-interactive runs can't ask, so they skip unapproved commands with a
+warning and carry on. `post_create` in the global config is user-owned and
+never prompts.
+
 ### Per-repository overrides (`repos`)
 
 `repos` is an array of entries, each tying one repository — identified by
@@ -271,14 +335,16 @@ top-level ones:
   `workspace_paths`, `full_paths`, `post_create`, and the `vscode_*`
   fields.
 
-Settings resolve in three layers, field by field:
+Settings resolve in four layers, field by field:
 
 1. built-in defaults, overlaid with
 2. the top-level fields in wt.json, overlaid with
-3. the `repos` entry whose `path` matches.
+3. the `repos` entry whose `path` matches, overlaid with
+4. the repo's own `.wtrc`, if it has one.
 
-An entry only needs the fields it wants to change; anything it omits falls
-through to the layer below. With the example config above, running
+A layer only needs the fields it wants to change; anything it omits falls
+through to the layer below. With the example config above — and the
+`.wtrc` from the previous section sitting in `~/code/myapp` — running
 `wt add fix-login` inside `~/code/myapp` (or any of its worktrees) resolves
 to:
 
@@ -286,16 +352,20 @@ to:
 | ------------------ | ----------------------------- | ---------- |
 | `worktree_dir`     | `~/code/myapp-trees/{branch}` | repo entry |
 | `default_base`     | `develop`                     | repo entry |
-| `branch_prefix`    | `team`                        | repo entry |
-| `prefix_separator` | `-`                           | repo entry |
+| `branch_prefix`    | `team`                        | `.wtrc` |
+| `prefix_separator` | `-`                           | `.wtrc` |
+| `post_create`      | `["npm ci"]`                  | `.wtrc` |
 
-so the created branch is `team-fix-login` (and the copy and `vscode_*`
-behaviors come from the repo entry too), while any other repo gets
-`~/worktrees/{repo}/{branch}`, `main`, and `peter` with the default `/`
-separator (branches like `peter/fix-login`) from the top level. Note that
-an empty string in a repo entry does not clear an inherited value — it's
-treated the same as omitting the field (use `--no-prefix` to skip a prefix
-per invocation).
+`.wtrc` has the last word on the bottom three rows: it repeats the
+entry's `branch_prefix` and `prefix_separator`, and its `post_create`
+replaces the entry's `["npm install", "direnv allow"]` — a repo-sourced
+list, so it needs approval before it runs. The created branch is
+`team-fix-login` (and the copy and `vscode_*` behaviors come from the repo
+entry too), while any other repo gets `~/worktrees/{repo}/{branch}`,
+`main`, and `peter` with the default `/` separator (branches like
+`peter/fix-login`) from the top level. Note that an empty string in a repo
+entry does not clear an inherited value — it's treated the same as omitting
+the field (use `--no-prefix` to skip a prefix per invocation).
 
 Repos without an entry need no configuration at all; `repos` is purely
 opt-in per repo. An entry without a `path` is rejected when the config is

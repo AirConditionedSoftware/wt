@@ -97,6 +97,22 @@ type File struct {
 	Repos []RepoConfig `json:"repos,omitempty"`
 }
 
+// LocalFileName is the repo-local config file, read from the root of a
+// repository's main worktree only — never from a linked worktree.
+const LocalFileName = ".wtrc"
+
+// LocalConfig is the .wtrc schema: the same settings as a repos entry,
+// for the repository the file lives in. It is parsed with unknown fields
+// rejected, so "repos" and "path" — meaningless in a file that is itself
+// the repo — fail loudly.
+type LocalConfig struct {
+	// Name is what {repo} expands to for this repo. It overrides the name
+	// of a matching global repos entry. Empty means the entry's name, or
+	// the directory basename of the main worktree.
+	Name string `json:"name,omitempty"`
+	Settings
+}
+
 // Path returns the config file location and whether it was set explicitly
 // via $WT_CONFIG.
 func Path() (path string, explicit bool, err error) {
@@ -132,27 +148,100 @@ func Load() (*File, error) {
 	if err := dec.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("config %s: %w", path, err)
 	}
-	if err := validateWorkspacePaths(path, "", cfg.WorkspacePaths); err != nil {
+	if err := validateWorkspacePaths("config "+path, "", cfg.WorkspacePaths); err != nil {
 		return nil, err
 	}
 	for i, r := range cfg.Repos {
 		if r.Path == "" {
 			return nil, fmt.Errorf("config %s: repos[%d] is missing \"path\"", path, i)
 		}
-		if err := validateWorkspacePaths(path, fmt.Sprintf("repos[%d] ", i), r.WorkspacePaths); err != nil {
+		if err := validateWorkspacePaths("config "+path, fmt.Sprintf("repos[%d] ", i), r.WorkspacePaths); err != nil {
 			return nil, err
 		}
 	}
 	return &cfg, nil
 }
 
-func validateWorkspacePaths(cfgPath, where string, wps []WorkspacePath) error {
+// validateWorkspacePaths reports entries missing "path". desc names the file
+// ("config <path>" or "repo config <path>"), where locates it within the file.
+func validateWorkspacePaths(desc, where string, wps []WorkspacePath) error {
 	for i, wp := range wps {
 		if wp.Path == "" {
-			return fmt.Errorf("config %s: %sworkspace_paths[%d] is missing \"path\"", cfgPath, where, i)
+			return fmt.Errorf("%s: %sworkspace_paths[%d] is missing \"path\"", desc, where, i)
 		}
 	}
 	return nil
+}
+
+// loadLocal reads <mainPath>/.wtrc. A missing file is not an error; the
+// returned path is reported either way, for provenance. Broken JSON and
+// unknown fields fail loudly, like a broken global config.
+func loadLocal(mainPath string) (*LocalConfig, string, error) {
+	path := filepath.Join(mainPath, LocalFileName)
+	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil, path, nil
+	}
+	if err != nil {
+		return nil, path, fmt.Errorf("repo config %s: %w", path, err)
+	}
+	defer f.Close()
+	dec := json.NewDecoder(f)
+	dec.DisallowUnknownFields()
+	var local LocalConfig
+	if err := dec.Decode(&local); err != nil {
+		return nil, path, fmt.Errorf("repo config %s: %w", path, err)
+	}
+	if err := validateWorkspacePaths("repo config "+path, "", local.WorkspacePaths); err != nil {
+		return nil, path, err
+	}
+	return &local, path, nil
+}
+
+// Resolved is the effective configuration for one repository, plus where the
+// values came from.
+type Resolved struct {
+	Settings
+	// RepoName is the .wtrc name, else the global repos entry's name,
+	// else "" (the caller falls back to the directory basename).
+	RepoName string
+	// LocalFile is the path of the .wtrc that was loaded, "" if none.
+	LocalFile string
+	// PostCreateFromRepo reports that the effective PostCreate came from
+	// .wtrc rather than the user-owned global config, and so needs
+	// approval before it runs.
+	PostCreateFromRepo bool
+}
+
+// Resolve returns the effective settings for the repository whose main
+// worktree is at mainPath, layering built-in defaults, the global config's
+// top-level settings, its matching repos entry, and finally the repo's own
+// .wtrc. Each layer overrides field by field: empty strings fall through,
+// lists and booleans that are set replace the layer below.
+func Resolve(mainPath string) (Resolved, error) {
+	cfg, err := Load()
+	if err != nil {
+		return Resolved{}, err
+	}
+	settings, name := cfg.ForPath(mainPath)
+	resolved := Resolved{Settings: settings, RepoName: name}
+
+	local, path, err := loadLocal(mainPath)
+	if err != nil {
+		return Resolved{}, err
+	}
+	if local == nil {
+		return resolved, nil
+	}
+	resolved.LocalFile = path
+	resolved.Settings.merge(local.Settings)
+	if local.Name != "" {
+		resolved.RepoName = local.Name
+	}
+	// An explicit [] clears the inherited commands and still counts as
+	// repo-sourced, so the approval gate sees the repo's decision.
+	resolved.PostCreateFromRepo = local.PostCreate != nil
+	return resolved, nil
 }
 
 // ForPath returns the effective settings for the repository whose main

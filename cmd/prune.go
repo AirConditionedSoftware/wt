@@ -23,9 +23,8 @@ have been deleted manually, shown as "prunable" in wt list. Only
 		if err != nil {
 			return err
 		}
-		if cfg, err := config.Load(); err == nil {
-			s, _ := cfg.ForPath(wts[0].Path)
-			applyDisplayConfig(s)
+		if res, err := config.Resolve(wts[0].Path); err == nil {
+			applyDisplayConfig(res.Settings)
 		}
 		var stale []gitx.Worktree
 		for _, w := range wts {

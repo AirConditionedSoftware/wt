@@ -2,16 +2,20 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/AirConditionedSoftware/wt/internal/config"
 	"github.com/AirConditionedSoftware/wt/internal/gitx"
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var (
@@ -62,11 +66,12 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	}
 	mainPath := wts[0].Path
 
-	cfg, err := config.Load()
+	res, err := config.Resolve(mainPath)
 	if err != nil {
 		return err
 	}
-	settings, repo := cfg.ForPath(mainPath)
+	settings := res.Settings
+	repo := res.RepoName
 	if repo == "" {
 		repo = filepath.Base(mainPath)
 	}
@@ -165,6 +170,17 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	postCmds := settings.PostCreate
 	if addNoPostCreate {
 		postCmds = nil
+	}
+	// Commands the repository supplied are gated; commands from the
+	// user-owned global config are not.
+	if len(postCmds) > 0 && res.PostCreateFromRepo {
+		allowed, err := approveRepoPostCreate(mainPath, res.LocalFile, postCmds)
+		if err != nil {
+			return err
+		}
+		if !allowed {
+			postCmds = nil
+		}
 	}
 	if len(postCmds) > 0 {
 		if err := runPostCreate(target, mainPath, repo, branch, postCmds); err != nil {
@@ -268,6 +284,102 @@ func runPostCreate(worktreePath, mainPath, repo, branch string, cmds []string) e
 		}
 	}
 	return nil
+}
+
+// approveRepoPostCreate gates post_create commands that came from the
+// repository's own .wtrc instead of the user-owned config file, and
+// reports whether they may run. Commands identical to a stored approval run
+// without prompting; anything else asks for confirmation and records the
+// answer. Without a terminal to ask at, the commands are skipped with a
+// warning rather than run — the worktree itself is fine either way.
+func approveRepoPostCreate(mainPath, localFile string, cmds []string) (bool, error) {
+	approved, hadApproval := config.ApprovedPostCreate(mainPath)
+	if hadApproval && slices.Equal(approved, cmds) {
+		return true, nil
+	}
+
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		fmt.Fprintf(os.Stderr, "Warning: post_create from %s is not approved; skipping (run wt add interactively to review).\n", displayPath(localFile))
+		return false, nil
+	}
+
+	title := fmt.Sprintf("post_create in %s wants to run commands. Allow them?", displayPath(localFile))
+	if hadApproval {
+		title = fmt.Sprintf("post_create in %s changed. Allow these commands?", displayPath(localFile))
+	}
+	allow := false
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().
+			Title(title).
+			Description(diffCommands(approved, cmds)).
+			Affirmative("Allow and remember").
+			Negative("Skip this time").
+			Value(&allow),
+	))
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			return false, errors.New("aborted")
+		}
+		return false, err
+	}
+	if !allow {
+		// Nothing is stored, so the next wt add asks again.
+		fmt.Fprintln(os.Stderr, "Skipped post_create (not approved)")
+		return false, nil
+	}
+	if err := config.ApprovePostCreate(mainPath, cmds); err != nil {
+		return false, fmt.Errorf("recording the approval failed: %w", err)
+	}
+	return true, nil
+}
+
+// diffCommands renders old against new as an ordered line diff for the
+// approval prompt: commands in both are indented, commands only in new are
+// marked "+", commands only in old "-". Matches are claimed greedily in
+// order, and removals print where they disappeared. A nil old list (a first
+// approval) marks every command as added.
+func diffCommands(old, new []string) string {
+	// match[j] is the index in old that new[j] pairs with, -1 if none.
+	match := make([]int, len(new))
+	cursor := 0
+	for j, cmd := range new {
+		match[j] = -1
+		for i := cursor; i < len(old); i++ {
+			if old[i] == cmd {
+				match[j], cursor = i, i+1
+				break
+			}
+		}
+	}
+
+	var b strings.Builder
+	i := 0
+	removeUpTo := func(upto int) {
+		for ; i < upto; i++ {
+			fmt.Fprintf(&b, "  - %s\n", old[i])
+		}
+	}
+	for j, cmd := range new {
+		if match[j] >= 0 {
+			removeUpTo(match[j])
+			fmt.Fprintf(&b, "    %s\n", cmd)
+			i++
+			continue
+		}
+		// An added command: everything of old that cannot appear before
+		// the next paired command is gone, so show those removals first.
+		upto := len(old)
+		for k := j + 1; k < len(new); k++ {
+			if match[k] >= 0 {
+				upto = match[k]
+				break
+			}
+		}
+		removeUpTo(upto)
+		fmt.Fprintf(&b, "  + %s\n", cmd)
+	}
+	removeUpTo(len(old))
+	return strings.TrimRight(b.String(), "\n")
 }
 
 // openInVSCode launches VS Code on path. Failing to open is a warning, not

@@ -26,9 +26,8 @@ var listCmd = &cobra.Command{
 			return err
 		}
 		// Display preferences only — a broken config must not break list.
-		if cfg, err := config.Load(); err == nil {
-			s, _ := cfg.ForPath(wts[0].Path)
-			applyDisplayConfig(s)
+		if res, err := config.Resolve(wts[0].Path); err == nil {
+			applyDisplayConfig(res.Settings)
 		}
 		if listJSON {
 			enc := json.NewEncoder(os.Stdout)
