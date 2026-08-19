@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
@@ -45,7 +46,9 @@ database inside .git is not attributed to any worktree.`,
 		}
 		sort.SliceStable(rows, func(i, j int) bool { return rows[i].size > rows[j].size })
 
-		tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		var buf bytes.Buffer
+		tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+		styles := []string{ansiBold}
 		fmt.Fprintln(tw, "BRANCH\tPATH\tSIZE")
 		var total int64
 		for _, r := range rows {
@@ -61,10 +64,15 @@ database inside .git is not attributed to any worktree.`,
 				sizeStr = formatSize(r.size, unit)
 				total += r.size
 			}
+			styles = append(styles, "")
 			fmt.Fprintf(tw, "%s\t%s\t%s\n", branch, r.wt.Path, sizeStr)
 		}
+		styles = append(styles, ansiBold)
 		fmt.Fprintf(tw, "TOTAL\t\t%s\n", formatSize(total, unit))
-		return tw.Flush()
+		if err := tw.Flush(); err != nil {
+			return err
+		}
+		return printStyled(os.Stdout, buf.String(), styles)
 	},
 }
 

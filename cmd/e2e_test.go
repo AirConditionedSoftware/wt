@@ -160,6 +160,9 @@ func TestEndToEnd(t *testing.T) {
 				t.Errorf("list output missing %q:\n%s", want, out)
 			}
 		}
+		if strings.Contains(out, "\x1b") {
+			t.Errorf("list output contains ANSI escapes without a terminal:\n%q", out)
+		}
 	})
 
 	t.Run("list json", func(t *testing.T) {

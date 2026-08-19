@@ -79,6 +79,11 @@ go install github.com/AirConditionedSoftware/wt@latest
   (stdout, so `wt config | jq` works). Prints the built-in defaults if no
   file exists, and fails loudly if the file is invalid.
 
+Tables are colored when stdout is a terminal — the worktree you're in is
+green, prunable rows yellow, locked rows cyan. Disable with `--no-color` or
+the [`NO_COLOR`](https://no-color.org) environment variable; piped output is
+always plain.
+
 `wt add` prints only the created path on stdout (everything else goes to
 stderr), so you can hop straight into a new worktree with a shell function:
 

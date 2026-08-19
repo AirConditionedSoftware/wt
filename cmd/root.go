@@ -29,6 +29,7 @@ create new ones in locations driven by ~/.wt/wt.json (or $WT_CONFIG).`,
 }
 
 func init() {
+	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output (also disabled when NO_COLOR is set or stdout is not a terminal)")
 	rootCmd.Flags().BoolVarP(&rootRemove, "remove", "r", false, "remove worktrees (shorthand for wt remove); with no branch, select interactively")
 	rootCmd.Flags().BoolVarP(&removeForce, "force", "f", false, "with -r: remove even if the worktree is dirty or locked")
 }
