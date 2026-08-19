@@ -70,13 +70,16 @@ func removeInteractive() error {
 		return nil
 	}
 
-	// Commit info is decoration; entries fall back to bare branch labels
-	// if it fails (e.g. a worktree on an unborn branch).
 	infos := worktreeInfos(candidates)
-	width := branchWidth(candidates)
+	defBranch := gitx.DefaultBranch(".")
 	opts := make([]huh.Option[string], 0, len(candidates))
 	for _, w := range candidates {
-		opts = append(opts, huh.NewOption(worktreeEntry(w, width, infos, ansiBold, true), w.Path))
+		line1, line2 := worktreeLines(w, infos, defBranch, gatherFacts(w, defBranch), 40)
+		label := line1
+		if line2 != "" {
+			label += "  " + line2
+		}
+		opts = append(opts, huh.NewOption(label, w.Path))
 	}
 
 	var selected []string

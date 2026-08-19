@@ -24,6 +24,7 @@ const (
 	ansiGreen  = "\x1b[32m"
 	ansiYellow = "\x1b[33m"
 	ansiCyan   = "\x1b[36m"
+	ansiGray   = "\x1b[90m"
 )
 
 func colorsEnabled() bool {

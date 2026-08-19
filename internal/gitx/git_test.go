@@ -92,3 +92,40 @@ func TestCommitInfosBadSha(t *testing.T) {
 		t.Error("CommitInfos with unknown sha should fail")
 	}
 }
+
+func TestDefaultBranch(t *testing.T) {
+	dir := testRepo(t)
+	if got := DefaultBranch(dir); got != "main" {
+		t.Errorf("DefaultBranch = %q; want main", got)
+	}
+}
+
+func TestChangeCount(t *testing.T) {
+	dir := testRepo(t)
+	n, err := ChangeCount(dir)
+	if err != nil || n != 0 {
+		t.Errorf("ChangeCount clean = %d, %v; want 0", n, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "new.txt"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "f.txt"), []byte("changed\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	n, err = ChangeCount(dir)
+	if err != nil || n != 2 {
+		t.Errorf("ChangeCount with untracked+modified = %d, %v; want 2", n, err)
+	}
+}
+
+func TestIsAncestor(t *testing.T) {
+	dir := testRepo(t)
+	head, _ := Run(dir, "rev-parse", "HEAD")
+	prev, _ := Run(dir, "rev-parse", "HEAD~1")
+	if !IsAncestor(dir, prev, head) {
+		t.Error("HEAD~1 should be an ancestor of HEAD")
+	}
+	if IsAncestor(dir, head, prev) {
+		t.Error("HEAD must not be an ancestor of HEAD~1")
+	}
+}

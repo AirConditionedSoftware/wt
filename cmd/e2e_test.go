@@ -167,6 +167,15 @@ func TestEndToEnd(t *testing.T) {
 		if !strings.Contains(out, "ago)") {
 			t.Errorf("list output missing relative commit age:\n%s", out)
 		}
+		if !strings.Contains(out, "0 unstaged") {
+			t.Errorf("list output missing unstaged count:\n%s", out)
+		}
+		if !strings.Contains(out, "merged into main") {
+			t.Errorf("list output missing merge status:\n%s", out)
+		}
+		if !strings.Contains(out, "[feature/login]") {
+			t.Errorf("list output missing bracketed branch:\n%s", out)
+		}
 	})
 
 	t.Run("list json", func(t *testing.T) {
@@ -767,20 +776,20 @@ func TestEndToEnd(t *testing.T) {
 			t.Errorf("wt add stdout = %q; want absolute %q", out, inHome)
 		}
 
-		l, _, err := wt(t, home, cfg, repo, "list")
+		l, _, err := wt(t, home, cfg, repo, "du")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if !strings.Contains(l, "~/trees/homed") {
-			t.Errorf("list should abbreviate the home directory:\n%s", l)
+			t.Errorf("du should abbreviate the home directory:\n%s", l)
 		}
 
-		lf, _, err := wt(t, home, cfg, repo, "list", "--full-paths")
+		lf, _, err := wt(t, home, cfg, repo, "du", "--full-paths")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if strings.Contains(lf, "~/trees/homed") {
-			t.Errorf("list --full-paths should not abbreviate:\n%s", lf)
+			t.Errorf("du --full-paths should not abbreviate:\n%s", lf)
 		}
 
 		cfgFull := filepath.Join(work, "wt-fullpaths.json")
@@ -791,12 +800,12 @@ func TestEndToEnd(t *testing.T) {
 		if err := os.WriteFile(cfgFull, []byte(cfgJSON), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		lc, _, err := wt(t, home, cfgFull, repo, "list")
+		lc, _, err := wt(t, home, cfgFull, repo, "du")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if strings.Contains(lc, "~/trees/homed") {
-			t.Errorf("list with full_paths config should not abbreviate:\n%s", lc)
+			t.Errorf("du with full_paths config should not abbreviate:\n%s", lc)
 		}
 
 		if _, _, err := wt(t, home, cfg, repo, "remove", "homed"); err != nil {
