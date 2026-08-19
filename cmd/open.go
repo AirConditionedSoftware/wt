@@ -79,27 +79,12 @@ func pickWorktree(wts []gitx.Worktree) (*gitx.Worktree, error) {
 		return nil, errors.New("interactive selection needs a terminal; pass a branch name (see wt list)")
 	}
 
-	var shas []string
-	for _, w := range wts {
-		if w.Head != "" {
-			shas = append(shas, w.Head)
-		}
-	}
-	infos, _ := gitx.CommitInfos(".", shas)
+	infos := worktreeInfos(wts)
+	width := branchWidth(wts)
 
-	width := 0
-	for _, w := range wts {
-		if b := branchLabel(w); len(b) > width {
-			width = len(b)
-		}
-	}
 	opts := make([]huh.Option[int], 0, len(wts))
 	for i, w := range wts {
-		label := fmt.Sprintf("%-*s", width, branchLabel(w))
-		if info, ok := infos[w.Head]; ok {
-			label = fmt.Sprintf("%s  %s %s (%s)", label, info.ShortHash, truncate(info.Subject, 60), info.When)
-		}
-		opts = append(opts, huh.NewOption(label, i))
+		opts = append(opts, huh.NewOption(worktreeEntry(w, width, infos, ansiBold, true), i))
 	}
 
 	selected := -1

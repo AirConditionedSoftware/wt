@@ -13,9 +13,9 @@ Creating worktree with new branch "feature/login" from main
 /Users/you/worktrees/myapp/feature-login
 
 $ wt list
-* main           1a2b3c4d
+* main           1a2b3c4d (2 hours ago)
     ~/code/myapp
-  feature/login  1a2b3c4d
+  feature/login  1a2b3c4d (3 days ago)
     ~/worktrees/myapp/feature-login
 ```
 
@@ -36,8 +36,8 @@ go install github.com/AirConditionedSoftware/wt@latest
 ## Usage
 
 - `wt list [--json]` — list all worktrees of the current repository, two
-  lines per worktree (branch and short HEAD, path indented below) so long
-  paths never blow out the width. The `*` marks the worktree you're in;
+  lines per worktree (branch, short HEAD, and the last commit's age; path
+  indented below) so long paths never blow out the width. The `*` marks the worktree you're in;
   locked and prunable worktrees carry inline tags (and flags in `--json`).
 - `wt add <branch> [--base <ref>] [--path <dir>]` — create a worktree:
   - branch exists locally → checked out as-is

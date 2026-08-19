@@ -34,18 +34,11 @@ var listCmd = &cobra.Command{
 		}
 
 		current, _ := gitx.Toplevel(".")
-		width := 0
-		for _, w := range wts {
-			if l := len(branchLabel(w)); l > width {
-				width = l
-			}
-		}
+		width := branchWidth(wts)
+		infos := worktreeInfos(wts)
 
-		// Two lines per worktree — branch and head, path indented below —
-		// so the output fits a terminal regardless of path length. The
-		// branch carries the weight (bold; green when current), hash and
-		// path are dimmed, and the rare locked/prunable states are inline
-		// tags — words, so they survive piping too.
+		// Two lines per worktree — branch, head, and age, path indented
+		// below — so the output fits a terminal regardless of path length.
 		var b strings.Builder
 		for _, w := range wts {
 			marker := " "
@@ -54,22 +47,8 @@ var listCmd = &cobra.Command{
 				marker = "*"
 				branchStyle = ansiBold + ansiGreen
 			}
-			head := w.Head
-			if len(head) > 8 {
-				head = head[:8]
-			}
-
-			line := colorText(fmt.Sprintf("%s %-*s", marker, width, branchLabel(w)), branchStyle)
-			if head != "" {
-				line += colorText("  "+head, ansiDim)
-			}
-			if w.Locked {
-				line += colorText("  locked", ansiCyan)
-			}
-			if w.Prunable {
-				line += colorText("  prunable", ansiYellow)
-			}
-			fmt.Fprintln(&b, strings.TrimRight(line, " "))
+			entry := worktreeEntry(w, width, infos, branchStyle, false)
+			fmt.Fprintln(&b, strings.TrimRight(marker+" "+entry, " "))
 			fmt.Fprintln(&b, colorText("    "+displayPath(w.Path), ansiDim))
 		}
 		fmt.Print(b.String())
