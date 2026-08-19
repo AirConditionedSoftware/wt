@@ -78,6 +78,11 @@ go install github.com/AirConditionedSoftware/wt@latest
 - `wt config` — print the config file location (stderr) and its content
   (stdout, so `wt config | jq` works). Prints the built-in defaults if no
   file exists, and fails loudly if the file is invalid.
+- `wt completion` — interactive wizard that sets up shell completion: pick
+  your shell (preselected from `$SHELL`), get the line to add to its startup
+  file copied to your clipboard, and the steps to finish.
+  `wt completion <bash|zsh|fish|powershell>` prints the raw script that the
+  installed line sources.
 
 Tables are colored when stdout is a terminal — the worktree you're in is
 green, prunable rows yellow, locked rows cyan. Disable with `--no-color` or
