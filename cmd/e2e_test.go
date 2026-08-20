@@ -1169,7 +1169,7 @@ func TestEndToEnd(t *testing.T) {
 		}
 
 		// Without flags the output is unchanged from before they existed.
-		if data, want := scaffold(), "{\n  \"name\": \"myapp\"\n}\n"; string(data) != want {
+		if data, want := scaffold(), "{\n  \"$schema\": \"https://raw.githubusercontent.com/AirConditionedSoftware/wt/main/schema/wtrc.schema.json\",\n  \"name\": \"myapp\"\n}\n"; string(data) != want {
 			t.Errorf("flagless init wrote %q; want %q", data, want)
 		}
 	})
