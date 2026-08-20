@@ -1,5 +1,4 @@
 {
-  "$schema": "https://raw.githubusercontent.com/AirConditionedSoftware/wt/main/schema/wtrc.schema.json",
   "name": "myapp",
   "worktree_dir": "~/worktrees/{repo}/{branch}",
   "default_base": "develop",
