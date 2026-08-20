@@ -135,7 +135,6 @@ be set at the top level (applying to every repo) and overridden per repo:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/AirConditionedSoftware/wt/main/schema/wt.schema.json",
   "worktree_dir": "~/worktrees/{repo}/{branch}",
   "default_base": "main",
   "branch_prefix": "peter",
@@ -267,21 +266,6 @@ falls through.
 - `repos` — per-repository overrides, explained below.
 
 Unknown keys are rejected so typos fail loudly.
-
-### Editor validation and autocomplete
-
-Published JSON Schemas give editors validation and completion for both
-files — add a `$schema` key (wt accepts and ignores it):
-
-- global `wt.json`:
-  `https://raw.githubusercontent.com/AirConditionedSoftware/wt/main/schema/wt.schema.json`
-- repo-local `.wtrc`:
-  `https://raw.githubusercontent.com/AirConditionedSoftware/wt/main/schema/wtrc.schema.json`
-
-`wt init` writes the `$schema` line into new `.wtrc` files automatically,
-and [examples/.wtrc](examples/.wtrc) carries it too. The schemas live in
-[schema/](schema/) and are pinned to the config structs by a test, so they
-can't drift from what the parser accepts.
 
 ### Command-line flags with config equivalents
 

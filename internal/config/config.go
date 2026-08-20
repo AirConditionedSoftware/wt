@@ -11,13 +11,6 @@ import (
 	"strings"
 )
 
-// SchemaURL and LocalSchemaURL are the published JSON Schemas for the
-// global config file and the repo-local .wtrc, for use in "$schema" keys.
-const (
-	SchemaURL      = "https://raw.githubusercontent.com/AirConditionedSoftware/wt/main/schema/wt.schema.json"
-	LocalSchemaURL = "https://raw.githubusercontent.com/AirConditionedSoftware/wt/main/schema/wtrc.schema.json"
-)
-
 // EnvVar overrides the config file location.
 const EnvVar = "WT_CONFIG"
 
@@ -100,8 +93,6 @@ type RepoConfig struct {
 // File is the full wt.json schema: top-level defaults plus per-repo
 // overrides matched by the main worktree's path.
 type File struct {
-	// Schema lets editors validate and autocomplete the file; wt ignores it.
-	Schema string `json:"$schema,omitempty"`
 	Settings
 	Repos []RepoConfig `json:"repos,omitempty"`
 	// UpdateCheck lets wt --version query GitHub for a newer release.
@@ -124,8 +115,6 @@ const LocalFileName = ".wtrc"
 // rejected, so "repos" and "path" — meaningless in a file that is itself
 // the repo — fail loudly.
 type LocalConfig struct {
-	// Schema lets editors validate and autocomplete the file; wt ignores it.
-	Schema string `json:"$schema,omitempty"`
 	// Name is what {repo} expands to for this repo. It overrides the name
 	// of a matching global repos entry. Empty means the entry's name, or
 	// the directory basename of the main worktree.

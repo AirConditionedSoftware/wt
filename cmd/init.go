@@ -56,8 +56,7 @@ opens it directly.`,
 			name = filepath.Base(mainPath)
 		}
 		starter := config.LocalConfig{
-			Schema: config.LocalSchemaURL,
-			Name:   name,
+			Name: name,
 			Settings: config.Settings{
 				WorktreeDir:         initWorktreeDir,
 				DefaultBase:         initBase,
