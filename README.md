@@ -88,6 +88,11 @@ go install github.com/AirConditionedSoftware/wt@latest
   file exists, and fails loudly if the file is invalid. Run inside a repo
   that has a `.wtrc`, it prints and validates that file too, after the
   global one.
+- `wt config --effective` — print the fully merged settings for the
+  current repository as a table, with the layer each value came from:
+  `default`, `top-level`, `repos[N]`, or `.wtrc`. The layers consulted
+  (config file, matching `repos` entry, `.wtrc`) go to stderr. The
+  debuggable view of the [four-layer merge](#per-repository-overrides-repos).
 - `wt init [flags]` — create a starter repo-local `.wtrc` at the main
   worktree root (refuses to overwrite an existing one) and print its path,
   so `$EDITOR "$(wt init)"` opens it. Flags pre-fill fields — `--name`,
@@ -399,6 +404,11 @@ the field (use `--no-prefix` to skip a prefix per invocation).
 Repos without an entry need no configuration at all; `repos` is purely
 opt-in per repo. An entry without a `path` is rejected when the config is
 loaded.
+
+When the merge surprises you, `wt config --effective` prints exactly this
+table for the current repository — every setting's effective value and the
+layer it came from — plus which config file, `repos` entry, and `.wtrc`
+were consulted.
 
 ## Development
 

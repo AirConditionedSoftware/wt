@@ -410,3 +410,103 @@ func TestWorktreePath(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveDetailedProvenance(t *testing.T) {
+	main := t.TempDir()
+	writeGlobalForRepo(t, main)
+	local := `{"name": "localname", "branch_prefix": "team", "copy_files": ["only.local"]}`
+	if err := os.WriteFile(filepath.Join(main, LocalFileName), []byte(local), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	resolved, prov, err := ResolveDetailed(main)
+	if err != nil {
+		t.Fatalf("ResolveDetailed(%q): %v", main, err)
+	}
+	plain, err := Resolve(main)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(resolved, plain) {
+		t.Errorf("ResolveDetailed settings = %+v; want Resolve's %+v", resolved, plain)
+	}
+	if prov.ReposIndex != 0 || prov.ReposPath != main {
+		t.Errorf("matched entry = repos[%d] (%q); want repos[0] (%q)", prov.ReposIndex, prov.ReposPath, main)
+	}
+	wantFields := map[string]string{
+		"name":             SourceLocal, // .wtrc name over the entry's
+		"worktree_dir":     SourceTopLevel,
+		"default_base":     "repos[0]",
+		"branch_prefix":    SourceLocal, // over the top-level "peter"
+		"prefix_separator": "repos[0]",
+		"copy_hooks":       SourceTopLevel,
+		"copy_files":       SourceLocal, // over the entry's list
+		"post_create":      "repos[0]",
+	}
+	if !reflect.DeepEqual(prov.Fields, wantFields) {
+		t.Errorf("Fields = %v; want %v", prov.Fields, wantFields)
+	}
+	if got := prov.Source("vscode_open"); got != SourceDefault {
+		t.Errorf("Source(vscode_open) = %q; want %q", got, SourceDefault)
+	}
+}
+
+func TestResolveGlobal(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "wt.json")
+	if err := os.WriteFile(p, []byte(`{"default_base": "main"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(EnvVar, p)
+	resolved, prov, err := ResolveGlobal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Resolved{Settings: Settings{WorktreeDir: DefaultWorktreeDir, DefaultBase: "main"}}
+	if !reflect.DeepEqual(resolved, want) {
+		t.Errorf("ResolveGlobal() = %+v; want %+v", resolved, want)
+	}
+	if !reflect.DeepEqual(prov.Fields, map[string]string{"default_base": SourceTopLevel}) {
+		t.Errorf("Fields = %v; want default_base from top-level only", prov.Fields)
+	}
+	if prov.ReposIndex != -1 {
+		t.Errorf("ReposIndex = %d; want -1", prov.ReposIndex)
+	}
+}
+
+// TestSetFieldsCoversEveryField guards setFields and merge against drift:
+// every JSON-tagged field of Settings, when set in an overriding layer,
+// must both be applied by merge and reported by setFields.
+func TestSetFieldsCoversEveryField(t *testing.T) {
+	if got := (Settings{}).setFields(); len(got) != 0 {
+		t.Errorf("zero Settings setFields() = %v; want empty", got)
+	}
+	rt := reflect.TypeOf(Settings{})
+	for i := 0; i < rt.NumField(); i++ {
+		f := rt.Field(i)
+		jsonName, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+		if jsonName == "" {
+			t.Fatalf("field %s has no json tag", f.Name)
+		}
+		var layer Settings
+		fv := reflect.ValueOf(&layer).Elem().Field(i)
+		switch f.Type.Kind() {
+		case reflect.String:
+			fv.SetString("x")
+		case reflect.Pointer:
+			fv.Set(reflect.New(f.Type.Elem()))
+		case reflect.Slice:
+			fv.Set(reflect.MakeSlice(f.Type, 0, 0))
+		default:
+			t.Fatalf("field %s: unhandled kind %s — extend this test, merge, and setFields", f.Name, f.Type.Kind())
+		}
+		fields := layer.setFields()
+		if len(fields) != 1 || fields[0] != jsonName {
+			t.Errorf("setFields() with only %s set = %v; want [%s]", f.Name, fields, jsonName)
+		}
+		var base Settings
+		base.merge(layer)
+		if !reflect.DeepEqual(base, layer) {
+			t.Errorf("merge() does not apply %s", f.Name)
+		}
+	}
+}
