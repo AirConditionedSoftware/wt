@@ -10,22 +10,22 @@ import (
 	"testing"
 )
 
-var wtBin string
+var thBin string
 
 func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "wt-e2e")
+	dir, err := os.MkdirTemp("", "th-e2e")
 	if err != nil {
 		panic(err)
 	}
-	wtBin = filepath.Join(dir, "wt")
-	root, err := filepath.Abs("..")
+	thBin = filepath.Join(dir, "th")
+	root, err := filepath.Abs("../..")
 	if err != nil {
 		panic(err)
 	}
-	build := exec.Command("go", "build", "-o", wtBin, ".")
+	build := exec.Command("go", "build", "-o", thBin, "./cmd/th")
 	build.Dir = root
 	if out, err := build.CombinedOutput(); err != nil {
-		panic("building wt: " + err.Error() + "\n" + string(out))
+		panic("building th: " + err.Error() + "\n" + string(out))
 	}
 	code := m.Run()
 	os.RemoveAll(dir)
@@ -37,10 +37,10 @@ func gitEnv(home string) []string {
 	return append(os.Environ(),
 		"HOME="+home,
 		"GIT_CONFIG_NOSYSTEM=1",
-		"GIT_AUTHOR_NAME=wt-test",
-		"GIT_AUTHOR_EMAIL=wt@test.invalid",
-		"GIT_COMMITTER_NAME=wt-test",
-		"GIT_COMMITTER_EMAIL=wt@test.invalid",
+		"GIT_AUTHOR_NAME=th-test",
+		"GIT_AUTHOR_EMAIL=th@test.invalid",
+		"GIT_COMMITTER_NAME=th-test",
+		"GIT_COMMITTER_EMAIL=th@test.invalid",
 	)
 }
 
@@ -56,16 +56,16 @@ func git(t *testing.T, home, dir string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-func wt(t *testing.T, home, cfg, dir string, args ...string) (stdout, stderr string, err error) {
+func th(t *testing.T, home, cfg, dir string, args ...string) (stdout, stderr string, err error) {
 	t.Helper()
-	return wtWithEnv(t, home, cfg, dir, nil, args...)
+	return thWithEnv(t, home, cfg, dir, nil, args...)
 }
 
-func wtWithEnv(t *testing.T, home, cfg, dir string, extraEnv []string, args ...string) (stdout, stderr string, err error) {
+func thWithEnv(t *testing.T, home, cfg, dir string, extraEnv []string, args ...string) (stdout, stderr string, err error) {
 	t.Helper()
-	cmd := exec.Command(wtBin, args...)
+	cmd := exec.Command(thBin, args...)
 	cmd.Dir = dir
-	cmd.Env = append(append(gitEnv(home), "WT_CONFIG="+cfg), extraEnv...)
+	cmd.Env = append(append(gitEnv(home), "TH_CONFIG="+cfg), extraEnv...)
 	var so, se strings.Builder
 	cmd.Stdout = &so
 	cmd.Stderr = &se
@@ -95,7 +95,7 @@ func TestEndToEnd(t *testing.T) {
 	repo := filepath.Join(work, "myapp")
 
 	trees := filepath.Join(work, "trees")
-	cfg := filepath.Join(work, "wt.json")
+	cfg := filepath.Join(work, "th.json")
 	cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "repos": [{"name": "myapp", "path": "` + repo + `", "default_base": "main"}]
@@ -105,7 +105,7 @@ func TestEndToEnd(t *testing.T) {
 	}
 
 	t.Run("add new branch", func(t *testing.T) {
-		out, _, err := wt(t, home, cfg, repo, "add", "feature/login")
+		out, _, err := th(t, home, cfg, repo, "add", "feature/login")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -120,7 +120,7 @@ func TestEndToEnd(t *testing.T) {
 
 	t.Run("add existing local branch", func(t *testing.T) {
 		git(t, home, repo, "branch", "local-b")
-		out, _, err := wt(t, home, cfg, repo, "add", "local-b")
+		out, _, err := th(t, home, cfg, repo, "add", "local-b")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -131,7 +131,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("add remote branch tracks origin", func(t *testing.T) {
-		out, _, err := wt(t, home, cfg, repo, "add", "remote-only")
+		out, _, err := th(t, home, cfg, repo, "add", "remote-only")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -142,7 +142,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("add already checked out branch fails", func(t *testing.T) {
-		_, stderr, err := wt(t, home, cfg, repo, "add", "main")
+		_, stderr, err := th(t, home, cfg, repo, "add", "main")
 		if err == nil {
 			t.Fatal("expected error for already checked out branch")
 		}
@@ -152,7 +152,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("list", func(t *testing.T) {
-		out, _, err := wt(t, home, cfg, repo, "list")
+		out, _, err := th(t, home, cfg, repo, "list")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -179,7 +179,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("list json", func(t *testing.T) {
-		out, _, err := wt(t, home, cfg, repo, "list", "--json")
+		out, _, err := th(t, home, cfg, repo, "list", "--json")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -193,7 +193,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("du lists sizes per worktree", func(t *testing.T) {
-		out, _, err := wt(t, home, cfg, repo, "du")
+		out, _, err := th(t, home, cfg, repo, "du")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -202,26 +202,26 @@ func TestEndToEnd(t *testing.T) {
 				t.Errorf("du output missing %q:\n%s", want, out)
 			}
 		}
-		out2, _, err := wt(t, home, cfg, repo, "du", "--unit", "KB")
+		out2, _, err := th(t, home, cfg, repo, "du", "--unit", "KB")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if !strings.Contains(out2, "KB") {
 			t.Errorf("du --unit KB output has no KB sizes:\n%s", out2)
 		}
-		if _, _, err := wt(t, home, cfg, repo, "du", "--unit", "TB"); err == nil {
+		if _, _, err := th(t, home, cfg, repo, "du", "--unit", "TB"); err == nil {
 			t.Error("du with invalid unit should fail")
 		}
 	})
 
 	t.Run("list outside a repo fails", func(t *testing.T) {
-		if _, _, err := wt(t, home, cfg, t.TempDir(), "list"); err == nil {
+		if _, _, err := th(t, home, cfg, t.TempDir(), "list"); err == nil {
 			t.Error("expected error outside a git repository")
 		}
 	})
 
 	t.Run("remove worktree keeps branch", func(t *testing.T) {
-		out, stderr, err := wt(t, home, cfg, repo, "remove", "local-b")
+		out, stderr, err := th(t, home, cfg, repo, "remove", "local-b")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -236,7 +236,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("remove via -r flag", func(t *testing.T) {
-		if _, stderr, err := wt(t, home, cfg, repo, "-r", "remote-only"); err != nil {
+		if _, stderr, err := th(t, home, cfg, repo, "-r", "remote-only"); err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
 		path := filepath.Join(trees, "myapp", "remote-only")
@@ -246,7 +246,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("remove main worktree fails", func(t *testing.T) {
-		_, stderr, err := wt(t, home, cfg, repo, "remove", "main")
+		_, stderr, err := th(t, home, cfg, repo, "remove", "main")
 		if err == nil {
 			t.Fatal("expected error removing the main worktree")
 		}
@@ -257,7 +257,7 @@ func TestEndToEnd(t *testing.T) {
 
 	t.Run("remove worktree you are in fails", func(t *testing.T) {
 		inside := filepath.Join(trees, "myapp", "feature-login")
-		_, stderr, err := wt(t, home, cfg, inside, "remove", "feature/login")
+		_, stderr, err := th(t, home, cfg, inside, "remove", "feature/login")
 		if err == nil {
 			t.Fatal("expected error removing the current worktree")
 		}
@@ -267,7 +267,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("remove unknown branch fails", func(t *testing.T) {
-		_, stderr, err := wt(t, home, cfg, repo, "remove", "no-such-branch")
+		_, stderr, err := th(t, home, cfg, repo, "remove", "no-such-branch")
 		if err == nil {
 			t.Fatal("expected error for unknown worktree")
 		}
@@ -278,11 +278,11 @@ func TestEndToEnd(t *testing.T) {
 
 	t.Run("remove multiple branches at once", func(t *testing.T) {
 		for _, b := range []string{"multi-a", "multi-b"} {
-			if _, _, err := wt(t, home, cfg, repo, "add", b); err != nil {
+			if _, _, err := th(t, home, cfg, repo, "add", b); err != nil {
 				t.Fatal(err)
 			}
 		}
-		if _, stderr, err := wt(t, home, cfg, repo, "remove", "multi-a", "multi-b"); err != nil {
+		if _, stderr, err := th(t, home, cfg, repo, "remove", "multi-a", "multi-b"); err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
 		for _, b := range []string{"multi-a", "multi-b"} {
@@ -294,7 +294,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("remove with no args needs a terminal", func(t *testing.T) {
-		_, stderr, err := wt(t, home, cfg, repo, "remove")
+		_, stderr, err := th(t, home, cfg, repo, "remove")
 		if err == nil {
 			t.Fatal("expected error for interactive remove without a terminal")
 		}
@@ -304,26 +304,26 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("remove dirty worktree needs force", func(t *testing.T) {
-		out, _, err := wt(t, home, cfg, repo, "add", "dirty")
+		out, _, err := th(t, home, cfg, repo, "add", "dirty")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if err := os.WriteFile(filepath.Join(out, "untracked.txt"), []byte("x\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		_, stderr, err := wt(t, home, cfg, repo, "remove", "dirty")
+		_, stderr, err := th(t, home, cfg, repo, "remove", "dirty")
 		if err == nil {
 			t.Fatal("expected error removing a dirty worktree without --force")
 		}
 		if !strings.Contains(stderr, "modified or untracked") || !strings.Contains(stderr, "--force") {
 			t.Errorf("stderr = %q; want dirty-worktree message pointing at --force", stderr)
 		}
-		if _, stderr, err := wt(t, home, cfg, repo, "remove", "--force", "dirty"); err != nil {
+		if _, stderr, err := th(t, home, cfg, repo, "remove", "--force", "dirty"); err != nil {
 			t.Fatalf("remove --force: %v\n%s", err, stderr)
 		}
 	})
 
-	cfgPrefix := filepath.Join(work, "wt-prefix.json")
+	cfgPrefix := filepath.Join(work, "th-prefix.json")
 	cfgPrefixJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "branch_prefix": "peter/"
@@ -333,7 +333,7 @@ func TestEndToEnd(t *testing.T) {
 	}
 
 	t.Run("add applies configured branch prefix", func(t *testing.T) {
-		out, _, err := wt(t, home, cfgPrefix, repo, "add", "widget")
+		out, _, err := th(t, home, cfgPrefix, repo, "add", "widget")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -347,10 +347,10 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("add finds branch created with prefix earlier", func(t *testing.T) {
-		if _, stderr, err := wt(t, home, cfgPrefix, repo, "remove", "peter/widget"); err != nil {
+		if _, stderr, err := th(t, home, cfgPrefix, repo, "remove", "peter/widget"); err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
-		_, stderr, err := wt(t, home, cfgPrefix, repo, "add", "widget")
+		_, stderr, err := th(t, home, cfgPrefix, repo, "add", "widget")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -364,7 +364,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("add --no-prefix skips prefix", func(t *testing.T) {
-		out, _, err := wt(t, home, cfgPrefix, repo, "add", "--no-prefix", "plain")
+		out, _, err := th(t, home, cfgPrefix, repo, "add", "--no-prefix", "plain")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -379,7 +379,7 @@ func TestEndToEnd(t *testing.T) {
 
 	t.Run("prefix not applied to existing branch", func(t *testing.T) {
 		git(t, home, repo, "branch", "preexisting")
-		out, _, err := wt(t, home, cfgPrefix, repo, "add", "preexisting")
+		out, _, err := th(t, home, cfgPrefix, repo, "add", "preexisting")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -393,12 +393,12 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("config prints location and content", func(t *testing.T) {
-		out, stderr, err := wt(t, home, cfgPrefix, repo, "config")
+		out, stderr, err := th(t, home, cfgPrefix, repo, "config")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
-		if !strings.Contains(stderr, cfgPrefix) || !strings.Contains(stderr, "WT_CONFIG") {
-			t.Errorf("stderr = %q; want config path and $WT_CONFIG mention", stderr)
+		if !strings.Contains(stderr, cfgPrefix) || !strings.Contains(stderr, "TH_CONFIG") {
+			t.Errorf("stderr = %q; want config path and $TH_CONFIG mention", stderr)
 		}
 		if out != strings.TrimSpace(cfgPrefixJSON) {
 			t.Errorf("stdout = %q; want file content %q", out, cfgPrefixJSON)
@@ -406,7 +406,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("config without a file prints defaults", func(t *testing.T) {
-		out, stderr, err := wt(t, home, "", repo, "config")
+		out, stderr, err := th(t, home, "", repo, "config")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -427,7 +427,7 @@ func TestEndToEnd(t *testing.T) {
 		if err := os.WriteFile(bad, []byte(`{"worktre_dir": "/x"}`), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		out, _, err := wt(t, home, bad, repo, "config")
+		out, _, err := th(t, home, bad, repo, "config")
 		if err == nil {
 			t.Fatal("expected error for invalid config")
 		}
@@ -437,7 +437,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("bare prefix gets default slash separator", func(t *testing.T) {
-		cfgBare := filepath.Join(work, "wt-bare-prefix.json")
+		cfgBare := filepath.Join(work, "th-bare-prefix.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "branch_prefix": "peter"
@@ -445,7 +445,7 @@ func TestEndToEnd(t *testing.T) {
 		if err := os.WriteFile(cfgBare, []byte(cfgJSON), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		out, _, err := wt(t, home, cfgBare, repo, "add", "doohickey")
+		out, _, err := th(t, home, cfgBare, repo, "add", "doohickey")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -459,7 +459,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("custom prefix separator per repo", func(t *testing.T) {
-		cfgSep := filepath.Join(work, "wt-sep.json")
+		cfgSep := filepath.Join(work, "th-sep.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "branch_prefix": "peter",
@@ -468,7 +468,7 @@ func TestEndToEnd(t *testing.T) {
 		if err := os.WriteFile(cfgSep, []byte(cfgJSON), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		out, _, err := wt(t, home, cfgSep, repo, "add", "gizmo")
+		out, _, err := th(t, home, cfgSep, repo, "add", "gizmo")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -482,7 +482,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("repo name overrides {repo} in templates", func(t *testing.T) {
-		cfgName := filepath.Join(work, "wt-name.json")
+		cfgName := filepath.Join(work, "th-name.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "repos": [{"name": "renamed", "path": "` + repo + `"}]
@@ -490,7 +490,7 @@ func TestEndToEnd(t *testing.T) {
 		if err := os.WriteFile(cfgName, []byte(cfgJSON), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		out, _, err := wt(t, home, cfgName, repo, "add", "nametest")
+		out, _, err := th(t, home, cfgName, repo, "add", "nametest")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -510,7 +510,7 @@ func TestEndToEnd(t *testing.T) {
 		}
 		git(t, home, repo, "config", "core.hooksPath", ".githooks")
 
-		out, stderr, err := wt(t, home, cfgPrefix, repo, "add", "--copy-hooks", "hooked")
+		out, stderr, err := th(t, home, cfgPrefix, repo, "add", "--copy-hooks", "hooked")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -524,7 +524,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("copy_hooks config and --no-copy-hooks override", func(t *testing.T) {
-		cfgHooks := filepath.Join(work, "wt-hooks.json")
+		cfgHooks := filepath.Join(work, "th-hooks.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "repos": [{"path": "` + repo + `", "copy_hooks": true}]
@@ -532,14 +532,14 @@ func TestEndToEnd(t *testing.T) {
 		if err := os.WriteFile(cfgHooks, []byte(cfgJSON), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		out, _, err := wt(t, home, cfgHooks, repo, "add", "hooked-cfg")
+		out, _, err := th(t, home, cfgHooks, repo, "add", "hooked-cfg")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if _, err := os.Stat(filepath.Join(out, ".githooks", "pre-commit")); err != nil {
 			t.Errorf("copy_hooks config did not copy hooks: %v", err)
 		}
-		out2, _, err := wt(t, home, cfgHooks, repo, "add", "--no-copy-hooks", "hooked-off")
+		out2, _, err := th(t, home, cfgHooks, repo, "add", "--no-copy-hooks", "hooked-off")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -564,7 +564,7 @@ func TestEndToEnd(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		cfgFiles := filepath.Join(work, "wt-files.json")
+		cfgFiles := filepath.Join(work, "th-files.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "repos": [{"path": "` + repo + `", "copy_files": [".env*", "local-conf"]}]
@@ -573,7 +573,7 @@ func TestEndToEnd(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		out, stderr, err := wt(t, home, cfgFiles, repo, "add", "with-files")
+		out, stderr, err := th(t, home, cfgFiles, repo, "add", "with-files")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -583,7 +583,7 @@ func TestEndToEnd(t *testing.T) {
 			}
 		}
 
-		out2, _, err := wt(t, home, cfgFiles, repo, "add", "--no-copy-files", "without-files")
+		out2, _, err := th(t, home, cfgFiles, repo, "add", "--no-copy-files", "without-files")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -593,7 +593,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("copy-file flag without config", func(t *testing.T) {
-		out, _, err := wt(t, home, cfgPrefix, repo, "add", "--copy-file", ".env", "flag-files")
+		out, _, err := th(t, home, cfgPrefix, repo, "add", "--copy-file", ".env", "flag-files")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -607,7 +607,7 @@ func TestEndToEnd(t *testing.T) {
 
 	t.Run("copy hooks with shared default hooks", func(t *testing.T) {
 		git(t, home, repo, "config", "--unset", "core.hooksPath")
-		_, stderr, err := wt(t, home, cfgPrefix, repo, "add", "--copy-hooks", "hooked-shared")
+		_, stderr, err := th(t, home, cfgPrefix, repo, "add", "--copy-hooks", "hooked-shared")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -617,7 +617,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("vscode workspace file with custom prefix and title", func(t *testing.T) {
-		cfgVS := filepath.Join(work, "wt-vscode.json")
+		cfgVS := filepath.Join(work, "th-vscode.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "repos": [{"path": "` + repo + `", "vscode_workspace_file": true, "vscode_workspace_prefix": "acs-", "vscode_window_title": "myapp — ${activeEditorShort}",
@@ -626,7 +626,7 @@ func TestEndToEnd(t *testing.T) {
 		if err := os.WriteFile(cfgVS, []byte(cfgJSON), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		out, stderr, err := wt(t, home, cfgVS, repo, "add", "ws-test")
+		out, stderr, err := th(t, home, cfgVS, repo, "add", "ws-test")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -661,7 +661,7 @@ func TestEndToEnd(t *testing.T) {
 			t.Error("workspace file must not be inside the worktree")
 		}
 
-		if _, stderr, err := wt(t, home, cfgVS, repo, "remove", "ws-test"); err != nil {
+		if _, stderr, err := th(t, home, cfgVS, repo, "remove", "ws-test"); err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
 		if _, err := os.Stat(wsPath); !os.IsNotExist(err) {
@@ -670,7 +670,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("vscode workspace title defaults to repo name", func(t *testing.T) {
-		cfgVS := filepath.Join(work, "wt-vscode-default.json")
+		cfgVS := filepath.Join(work, "th-vscode-default.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "repos": [{"path": "` + repo + `", "vscode_workspace_file": true}]
@@ -678,7 +678,7 @@ func TestEndToEnd(t *testing.T) {
 		if err := os.WriteFile(cfgVS, []byte(cfgJSON), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		out, _, err := wt(t, home, cfgVS, repo, "add", "ws-default")
+		out, _, err := th(t, home, cfgVS, repo, "add", "ws-default")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -698,7 +698,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("open requires vscode_open", func(t *testing.T) {
-		_, stderr, err := wt(t, home, cfg, repo, "open", "main")
+		_, stderr, err := th(t, home, cfg, repo, "open", "main")
 		if err == nil {
 			t.Fatal("expected error when vscode_open is not enabled")
 		}
@@ -716,7 +716,7 @@ func TestEndToEnd(t *testing.T) {
 		}
 		stubPath := []string{"PATH=" + stub + string(os.PathListSeparator) + os.Getenv("PATH")}
 
-		cfgOpen := filepath.Join(work, "wt-open.json")
+		cfgOpen := filepath.Join(work, "th-open.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "repos": [{"path": "` + repo + `", "vscode_open": true, "vscode_workspace_file": true, "vscode_workspace_prefix": "acs-"}]
@@ -735,7 +735,7 @@ func TestEndToEnd(t *testing.T) {
 		}
 
 		// A worktree without a workspace file opens as a folder.
-		_, stderr, err := wtWithEnv(t, home, cfgOpen, repo, stubPath, "open", "feature/login")
+		_, stderr, err := thWithEnv(t, home, cfgOpen, repo, stubPath, "open", "feature/login")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -748,12 +748,12 @@ func TestEndToEnd(t *testing.T) {
 			t.Errorf("code opened %q; want the folder %q", got, wantFolder)
 		}
 
-		// A worktree with a wt-generated workspace file opens that file.
-		out, _, err := wtWithEnv(t, home, cfgOpen, repo, stubPath, "add", "--no-open", "open-ws")
+		// A worktree with a th-generated workspace file opens that file.
+		out, _, err := thWithEnv(t, home, cfgOpen, repo, stubPath, "add", "--no-open", "open-ws")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, _, err := wtWithEnv(t, home, cfgOpen, repo, stubPath, "open", "open-ws"); err != nil {
+		if _, _, err := thWithEnv(t, home, cfgOpen, repo, stubPath, "open", "open-ws"); err != nil {
 			t.Fatal(err)
 		}
 		logged, err = os.ReadFile(codeLog)
@@ -768,15 +768,15 @@ func TestEndToEnd(t *testing.T) {
 
 	t.Run("full paths flag and config", func(t *testing.T) {
 		inHome := filepath.Join(home, "trees", "homed")
-		out, _, err := wt(t, home, cfg, repo, "add", "--path", inHome, "homed")
+		out, _, err := th(t, home, cfg, repo, "add", "--path", inHome, "homed")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if out != inHome {
-			t.Errorf("wt add stdout = %q; want absolute %q", out, inHome)
+			t.Errorf("th add stdout = %q; want absolute %q", out, inHome)
 		}
 
-		l, _, err := wt(t, home, cfg, repo, "du")
+		l, _, err := th(t, home, cfg, repo, "du")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -784,7 +784,7 @@ func TestEndToEnd(t *testing.T) {
 			t.Errorf("du should abbreviate the home directory:\n%s", l)
 		}
 
-		lf, _, err := wt(t, home, cfg, repo, "du", "--full-paths")
+		lf, _, err := th(t, home, cfg, repo, "du", "--full-paths")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -792,7 +792,7 @@ func TestEndToEnd(t *testing.T) {
 			t.Errorf("du --full-paths should not abbreviate:\n%s", lf)
 		}
 
-		cfgFull := filepath.Join(work, "wt-fullpaths.json")
+		cfgFull := filepath.Join(work, "th-fullpaths.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "repos": [{"path": "` + repo + `", "full_paths": true}]
@@ -800,7 +800,7 @@ func TestEndToEnd(t *testing.T) {
 		if err := os.WriteFile(cfgFull, []byte(cfgJSON), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		lc, _, err := wt(t, home, cfgFull, repo, "du")
+		lc, _, err := th(t, home, cfgFull, repo, "du")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -808,44 +808,44 @@ func TestEndToEnd(t *testing.T) {
 			t.Errorf("du with full_paths config should not abbreviate:\n%s", lc)
 		}
 
-		if _, _, err := wt(t, home, cfg, repo, "remove", "homed"); err != nil {
+		if _, _, err := th(t, home, cfg, repo, "remove", "homed"); err != nil {
 			t.Fatal(err)
 		}
 	})
 
 	t.Run("completion", func(t *testing.T) {
-		out, _, err := wt(t, home, cfg, repo, "completion", "zsh")
+		out, _, err := th(t, home, cfg, repo, "completion", "zsh")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if !strings.Contains(out, "#compdef") {
 			t.Errorf("zsh completion script missing #compdef header:\n%.120s", out)
 		}
-		_, stderr, err := wt(t, home, cfg, repo, "completion")
+		_, stderr, err := th(t, home, cfg, repo, "completion")
 		if err == nil {
 			t.Error("wizard without a terminal should fail")
 		} else if !strings.Contains(stderr, "terminal") {
 			t.Errorf("stderr = %q; want terminal hint", stderr)
 		}
-		if _, _, err := wt(t, home, cfg, repo, "completion", "tcsh"); err == nil {
+		if _, _, err := th(t, home, cfg, repo, "completion", "tcsh"); err == nil {
 			t.Error("unsupported shell should fail")
 		}
 	})
 
 	t.Run("post_create runs commands in the new worktree", func(t *testing.T) {
-		cfgPC := filepath.Join(work, "wt-postcreate.json")
+		cfgPC := filepath.Join(work, "th-postcreate.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "repos": [{"path": "` + repo + `", "post_create": [
     "echo ran > marker.txt",
-    "printf %s \"$WT_BRANCH\" > branch.txt",
-    "printf %s \"$WT_REPO\" > repo.txt"
+    "printf %s \"$TH_BRANCH\" > branch.txt",
+    "printf %s \"$TH_REPO\" > repo.txt"
   ]}]
 }`
 		if err := os.WriteFile(cfgPC, []byte(cfgJSON), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		out, stderr, err := wt(t, home, cfgPC, repo, "add", "pc-test")
+		out, stderr, err := th(t, home, cfgPC, repo, "add", "pc-test")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -853,13 +853,13 @@ func TestEndToEnd(t *testing.T) {
 			t.Errorf("post_create did not run in the worktree: %v", err)
 		}
 		if b, _ := os.ReadFile(filepath.Join(out, "branch.txt")); string(b) != "pc-test" {
-			t.Errorf("WT_BRANCH = %q; want pc-test", b)
+			t.Errorf("TH_BRANCH = %q; want pc-test", b)
 		}
 		if b, _ := os.ReadFile(filepath.Join(out, "repo.txt")); string(b) != "myapp" {
-			t.Errorf("WT_REPO = %q; want myapp", b)
+			t.Errorf("TH_REPO = %q; want myapp", b)
 		}
 
-		out2, _, err := wt(t, home, cfgPC, repo, "add", "--no-post-create", "pc-skip")
+		out2, _, err := th(t, home, cfgPC, repo, "add", "--no-post-create", "pc-skip")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -869,10 +869,10 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("post_create is safe against shell metacharacters in branch names", func(t *testing.T) {
-		cfgPC := filepath.Join(work, "wt-postcreate-inj.json")
+		cfgPC := filepath.Join(work, "th-postcreate-inj.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
-  "repos": [{"path": "` + repo + `", "post_create": ["printf %s \"$WT_BRANCH\" > branch.txt"]}]
+  "repos": [{"path": "` + repo + `", "post_create": ["printf %s \"$TH_BRANCH\" > branch.txt"]}]
 }`
 		if err := os.WriteFile(cfgPC, []byte(cfgJSON), 0o644); err != nil {
 			t.Fatal(err)
@@ -880,7 +880,7 @@ func TestEndToEnd(t *testing.T) {
 		// A legal git ref name (no spaces allowed) that creates BOOM via
 		// redirection if it is ever shell-interpolated.
 		evil := "inj-$(>BOOM)"
-		out, stderr, err := wt(t, home, cfgPC, repo, "add", evil)
+		out, stderr, err := th(t, home, cfgPC, repo, "add", evil)
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -888,12 +888,12 @@ func TestEndToEnd(t *testing.T) {
 			t.Error("branch name was shell-interpolated: BOOM file exists")
 		}
 		if b, _ := os.ReadFile(filepath.Join(out, "branch.txt")); string(b) != evil {
-			t.Errorf("WT_BRANCH = %q; want the literal branch name %q", b, evil)
+			t.Errorf("TH_BRANCH = %q; want the literal branch name %q", b, evil)
 		}
 	})
 
 	t.Run("post_create failure reports the worktree survived", func(t *testing.T) {
-		cfgPC := filepath.Join(work, "wt-postcreate-fail.json")
+		cfgPC := filepath.Join(work, "th-postcreate-fail.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "repos": [{"path": "` + repo + `", "post_create": ["exit 7"]}]
@@ -901,7 +901,7 @@ func TestEndToEnd(t *testing.T) {
 		if err := os.WriteFile(cfgPC, []byte(cfgJSON), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		_, stderr, err := wt(t, home, cfgPC, repo, "add", "pc-fail")
+		_, stderr, err := th(t, home, cfgPC, repo, "add", "pc-fail")
 		if err == nil {
 			t.Fatal("expected error when a post_create command fails")
 		}
@@ -915,10 +915,10 @@ func TestEndToEnd(t *testing.T) {
 
 	// The repo-local config lives in the main worktree and is deleted again
 	// by each subtest, so it cannot leak into the ones that follow.
-	localCfg := filepath.Join(repo, ".wtrc")
+	localCfg := filepath.Join(repo, ".thrc")
 
-	t.Run(".wtrc overrides global repos entry", func(t *testing.T) {
-		cfgLocal := filepath.Join(work, "wt-local.json")
+	t.Run(".thrc overrides global repos entry", func(t *testing.T) {
+		cfgLocal := filepath.Join(work, "th-local.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "repos": [{"name": "myapp", "path": "` + repo + `", "worktree_dir": "` + trees + `/trees-A/{branch}", "branch_prefix": "team"}]
@@ -936,24 +936,24 @@ func TestEndToEnd(t *testing.T) {
 		}
 		defer os.Remove(localCfg)
 
-		out, stderr, err := wt(t, home, cfgLocal, repo, "add", "wtj-test")
+		out, stderr, err := th(t, home, cfgLocal, repo, "add", "wtj-test")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
 		want := filepath.Join(trees, "local-localname", "local-wtj-test")
 		if out != want {
-			t.Errorf("stdout = %q; want %q from .wtrc", out, want)
+			t.Errorf("stdout = %q; want %q from .thrc", out, want)
 		}
 		if got := git(t, home, out, "rev-parse", "--abbrev-ref", "HEAD"); got != "local/wtj-test" {
 			t.Errorf("checked-out branch = %q; want local/wtj-test", got)
 		}
-		if _, stderr, err := wt(t, home, cfgLocal, repo, "remove", "local/wtj-test"); err != nil {
+		if _, stderr, err := th(t, home, cfgLocal, repo, "remove", "local/wtj-test"); err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
 	})
 
 	t.Run("repo post_create requires approval", func(t *testing.T) {
-		trustFile := filepath.Join(home, ".wt", "trust.json")
+		trustFile := filepath.Join(home, ".th", "trust.json")
 		defer func() {
 			os.Remove(localCfg)
 			os.Remove(trustFile)
@@ -969,7 +969,7 @@ func TestEndToEnd(t *testing.T) {
 		writeLocal(approvedCmd)
 
 		// Unapproved: the worktree is created, the commands are not run.
-		out, stderr, err := wt(t, home, cfg, repo, "add", "pc-unapproved")
+		out, stderr, err := th(t, home, cfg, repo, "add", "pc-unapproved")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -995,7 +995,7 @@ func TestEndToEnd(t *testing.T) {
 		if err := os.WriteFile(trustFile, []byte(trustJSON), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		out, stderr, err = wt(t, home, cfg, repo, "add", "pc-trusted")
+		out, stderr, err = th(t, home, cfg, repo, "add", "pc-trusted")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -1005,7 +1005,7 @@ func TestEndToEnd(t *testing.T) {
 
 		// Changing the commands invalidates the approval.
 		writeLocal("echo changed > pc-marker.txt")
-		out, stderr, err = wt(t, home, cfg, repo, "add", "pc-changed")
+		out, stderr, err = th(t, home, cfg, repo, "add", "pc-changed")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -1017,25 +1017,25 @@ func TestEndToEnd(t *testing.T) {
 		}
 	})
 
-	t.Run(".wtrc with repos key fails add but not list", func(t *testing.T) {
+	t.Run(".thrc with repos key fails add but not list", func(t *testing.T) {
 		if err := os.WriteFile(localCfg, []byte(`{"repos": []}`), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		defer os.Remove(localCfg)
 
-		_, stderr, err := wt(t, home, cfg, repo, "add", "wtj-invalid")
+		_, stderr, err := th(t, home, cfg, repo, "add", "wtj-invalid")
 		if err == nil {
-			t.Fatal("expected error for a .wtrc with a repos key")
+			t.Fatal("expected error for a .thrc with a repos key")
 		}
-		if !strings.Contains(stderr, ".wtrc") {
+		if !strings.Contains(stderr, ".thrc") {
 			t.Errorf("stderr = %q; want the repo-local file named", stderr)
 		}
-		if _, stderr, err := wt(t, home, cfg, repo, "list"); err != nil {
-			t.Errorf("list should survive a broken .wtrc: %v\n%s", err, stderr)
+		if _, stderr, err := th(t, home, cfg, repo, "list"); err != nil {
+			t.Errorf("list should survive a broken .thrc: %v\n%s", err, stderr)
 		}
 	})
 
-	t.Run("wt config prints repo-local file", func(t *testing.T) {
+	t.Run("th config prints repo-local file", func(t *testing.T) {
 		localJSON := `{"branch_prefix": "local"}`
 		if err := os.WriteFile(localCfg, []byte(localJSON+"\n"), 0o644); err != nil {
 			t.Fatal(err)
@@ -1047,12 +1047,12 @@ func TestEndToEnd(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		out, stderr, err := wt(t, home, cfg, repo, "config")
+		out, stderr, err := th(t, home, cfg, repo, "config")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
 		if !strings.Contains(stderr, resolved) || !strings.Contains(stderr, "repo-local") {
-			t.Errorf("stderr = %q; want the .wtrc path marked repo-local", stderr)
+			t.Errorf("stderr = %q; want the .thrc path marked repo-local", stderr)
 		}
 		if !strings.Contains(out, localJSON) {
 			t.Errorf("stdout = %q; want the repo-local content %q", out, localJSON)
@@ -1060,7 +1060,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("config --effective shows merged settings with sources", func(t *testing.T) {
-		cfgEff := filepath.Join(work, "wt-effective.json")
+		cfgEff := filepath.Join(work, "th-effective.json")
 		cfgEffJSON := `{
   "default_base": "main",
   "branch_prefix": "global",
@@ -1074,7 +1074,7 @@ func TestEndToEnd(t *testing.T) {
 		}
 		defer os.Remove(localCfg)
 
-		out, stderr, err := wt(t, home, cfgEff, repo, "config", "--effective")
+		out, stderr, err := th(t, home, cfgEff, repo, "config", "--effective")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -1084,11 +1084,11 @@ func TestEndToEnd(t *testing.T) {
 			}
 		}
 		for _, row := range [][3]string{
-			{"name", "localname", ".wtrc"},
+			{"name", "localname", ".thrc"},
 			{"worktree_dir", "~/worktrees/{repo}/{branch}", "default"},
 			{"default_base", "main", "top-level"},
 			{"branch_prefix", "team", "repos[0]"},
-			{"copy_files", `[".env"]`, ".wtrc"},
+			{"copy_files", `[".env"]`, ".thrc"},
 			{"copy_hooks", "false", "default"},
 		} {
 			assertEffectiveRow(t, out, row[0], row[1], row[2])
@@ -1096,7 +1096,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("config --effective outside a repository", func(t *testing.T) {
-		out, stderr, err := wt(t, home, "", work, "config", "--effective")
+		out, stderr, err := th(t, home, "", work, "config", "--effective")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
@@ -1109,28 +1109,28 @@ func TestEndToEnd(t *testing.T) {
 		}
 	})
 
-	t.Run("init scaffolds a repo-local .wtrc", func(t *testing.T) {
-		out, stderr, err := wt(t, home, cfg, repo, "init")
+	t.Run("init scaffolds a repo-local .thrc", func(t *testing.T) {
+		out, stderr, err := th(t, home, cfg, repo, "init")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
-		wtjson := filepath.Join(repo, ".wtrc")
+		wtjson := filepath.Join(repo, ".thrc")
 		t.Cleanup(func() { os.Remove(wtjson) })
 		data, err := os.ReadFile(wtjson)
 		if err != nil {
-			t.Fatalf(".wtrc not created at the main worktree root: %v", err)
+			t.Fatalf(".thrc not created at the main worktree root: %v", err)
 		}
 		var lc struct {
 			Name string `json:"name"`
 		}
 		if err := json.Unmarshal(data, &lc); err != nil || lc.Name != "myapp" {
-			t.Errorf(".wtrc = %s (err %v); want name myapp", data, err)
+			t.Errorf(".thrc = %s (err %v); want name myapp", data, err)
 		}
-		if filepath.Base(out) != ".wtrc" {
+		if filepath.Base(out) != ".thrc" {
 			t.Errorf("stdout = %q; want the created file path", out)
 		}
 
-		if _, stderr, err := wt(t, home, cfg, repo, "init"); err == nil {
+		if _, stderr, err := th(t, home, cfg, repo, "init"); err == nil {
 			t.Error("second init should refuse to overwrite")
 		} else if !strings.Contains(stderr, "already exists") {
 			t.Errorf("stderr = %q; want already-exists error", stderr)
@@ -1138,34 +1138,34 @@ func TestEndToEnd(t *testing.T) {
 
 		// From a linked worktree, init still targets the main worktree root.
 		os.Remove(wtjson)
-		linked, _, err := wt(t, home, cfg, repo, "add", "init-linked")
+		linked, _, err := th(t, home, cfg, repo, "add", "init-linked")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, stderr, err := wt(t, home, cfg, linked, "init"); err != nil {
+		if _, stderr, err := th(t, home, cfg, linked, "init"); err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
 		if _, err := os.Stat(wtjson); err != nil {
-			t.Errorf(".wtrc missing from main worktree after init in linked worktree: %v", err)
+			t.Errorf(".thrc missing from main worktree after init in linked worktree: %v", err)
 		}
-		if _, err := os.Stat(filepath.Join(linked, ".wtrc")); !os.IsNotExist(err) {
-			t.Error(".wtrc must not be created inside the linked worktree")
+		if _, err := os.Stat(filepath.Join(linked, ".thrc")); !os.IsNotExist(err) {
+			t.Error(".thrc must not be created inside the linked worktree")
 		}
 	})
 
-	t.Run("init flags pre-fill the scaffolded .wtrc", func(t *testing.T) {
-		wtrc := filepath.Join(repo, ".wtrc")
-		t.Cleanup(func() { os.Remove(wtrc) })
+	t.Run("init flags pre-fill the scaffolded .thrc", func(t *testing.T) {
+		thrc := filepath.Join(repo, ".thrc")
+		t.Cleanup(func() { os.Remove(thrc) })
 		// Each init refuses to overwrite, so start from a clean slate.
 		scaffold := func(args ...string) []byte {
 			t.Helper()
-			os.Remove(wtrc)
-			if _, stderr, err := wt(t, home, cfg, repo, append([]string{"init"}, args...)...); err != nil {
-				t.Fatalf("wt init %v: %v\n%s", args, err, stderr)
+			os.Remove(thrc)
+			if _, stderr, err := th(t, home, cfg, repo, append([]string{"init"}, args...)...); err != nil {
+				t.Fatalf("th init %v: %v\n%s", args, err, stderr)
 			}
-			data, err := os.ReadFile(wtrc)
+			data, err := os.ReadFile(thrc)
 			if err != nil {
-				t.Fatalf("wt init %v did not create the file: %v", args, err)
+				t.Fatalf("th init %v did not create the file: %v", args, err)
 			}
 			return data
 		}
@@ -1207,7 +1207,7 @@ func TestEndToEnd(t *testing.T) {
 			t.Fatal(err)
 		}
 		if _, ok := raw["vscode_workspace_file"]; ok {
-			t.Errorf(".wtrc = %s; want no vscode_workspace_file when --workspace-file is absent", data)
+			t.Errorf(".thrc = %s; want no vscode_workspace_file when --workspace-file is absent", data)
 		}
 
 		data = scaffold("--name", "custom")
@@ -1215,7 +1215,7 @@ func TestEndToEnd(t *testing.T) {
 			Name string `json:"name"`
 		}
 		if err := json.Unmarshal(data, &named); err != nil || named.Name != "custom" {
-			t.Errorf(".wtrc = %s (err %v); want name custom", data, err)
+			t.Errorf(".thrc = %s (err %v); want name custom", data, err)
 		}
 
 		// Without flags the output is unchanged from before they existed.
@@ -1225,7 +1225,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("prune cleans up stale worktrees", func(t *testing.T) {
-		out, _, err := wt(t, home, cfg, repo, "add", "doomed")
+		out, _, err := th(t, home, cfg, repo, "add", "doomed")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1233,30 +1233,30 @@ func TestEndToEnd(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		_, stderr, err := wt(t, home, cfg, repo, "prune", "--dry-run")
+		_, stderr, err := th(t, home, cfg, repo, "prune", "--dry-run")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
 		if !strings.Contains(stderr, "doomed") || !strings.Contains(stderr, "dry run") {
 			t.Errorf("dry-run stderr = %q; want the stale worktree listed", stderr)
 		}
-		if listOut, _, err := wt(t, home, cfg, repo, "list"); err != nil || !strings.Contains(listOut, "doomed") {
+		if listOut, _, err := th(t, home, cfg, repo, "list"); err != nil || !strings.Contains(listOut, "doomed") {
 			t.Errorf("dry run should not have pruned; list = %q, %v", listOut, err)
 		}
 
-		_, stderr, err = wt(t, home, cfg, repo, "prune")
+		_, stderr, err = th(t, home, cfg, repo, "prune")
 		if err != nil {
 			t.Fatalf("%v\n%s", err, stderr)
 		}
 		if !strings.Contains(stderr, "Pruned 1 stale worktree entry") {
 			t.Errorf("prune stderr = %q; want prune confirmation", stderr)
 		}
-		if listOut, _, err := wt(t, home, cfg, repo, "list"); err != nil || strings.Contains(listOut, "doomed") {
+		if listOut, _, err := th(t, home, cfg, repo, "list"); err != nil || strings.Contains(listOut, "doomed") {
 			t.Errorf("stale worktree still listed after prune: %q, %v", listOut, err)
 		}
 		git(t, home, repo, "rev-parse", "--verify", "refs/heads/doomed")
 
-		_, stderr, err = wt(t, home, cfg, repo, "prune")
+		_, stderr, err = th(t, home, cfg, repo, "prune")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1266,7 +1266,7 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("repo branch prefix overrides global", func(t *testing.T) {
-		cfgRepoPrefix := filepath.Join(work, "wt-repo-prefix.json")
+		cfgRepoPrefix := filepath.Join(work, "th-repo-prefix.json")
 		cfgJSON := `{
   "worktree_dir": "` + trees + `/{repo}/{branch}",
   "branch_prefix": "peter/",
@@ -1275,7 +1275,7 @@ func TestEndToEnd(t *testing.T) {
 		if err := os.WriteFile(cfgRepoPrefix, []byte(cfgJSON), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		out, _, err := wt(t, home, cfgRepoPrefix, repo, "add", "gadget")
+		out, _, err := th(t, home, cfgRepoPrefix, repo, "add", "gadget")
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -14,10 +14,10 @@ func testRepo(t *testing.T) string {
 	env := append(os.Environ(),
 		"HOME="+dir,
 		"GIT_CONFIG_NOSYSTEM=1",
-		"GIT_AUTHOR_NAME=wt-test",
-		"GIT_AUTHOR_EMAIL=wt@test.invalid",
-		"GIT_COMMITTER_NAME=wt-test",
-		"GIT_COMMITTER_EMAIL=wt@test.invalid",
+		"GIT_AUTHOR_NAME=th-test",
+		"GIT_AUTHOR_EMAIL=th@test.invalid",
+		"GIT_COMMITTER_NAME=th-test",
+		"GIT_COMMITTER_EMAIL=th@test.invalid",
 	)
 	run := func(args ...string) {
 		cmd := exec.Command("git", args...)

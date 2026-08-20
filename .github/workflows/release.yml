@@ -24,7 +24,9 @@ jobs:
         with:
           go-version: stable
       - run: go test ./...
-      # On a push to main, mint the next patch version (v0.2.0 -> v0.2.1).
+      # On a push to main, mint the next patch version (v0.2.0 -> v0.2.1),
+      # or the next minor (v0.2.x -> v0.3.0) when the head commit message
+      # carries a "#minor" marker — for breaking releases.
       # Skipped when HEAD is already tagged (e.g. main and a manual tag were
       # pushed together) so the tag event doesn't double-release, and when
       # nothing shipped in the binaries changed since the last release —
@@ -53,7 +55,11 @@ jobs:
           fi
           latest=${latest:-v0.0.0}
           IFS=. read -r major minor patch <<< "${latest#v}"
-          next="v${major}.${minor}.$((patch + 1))"
+          if git log -1 --format=%B HEAD | grep -qF '#minor'; then
+            next="v${major}.$((minor + 1)).0"
+          else
+            next="v${major}.${minor}.$((patch + 1))"
+          fi
           echo "Tagging ${next} (previous: ${latest})"
           git tag "${next}"
           git push origin "${next}"

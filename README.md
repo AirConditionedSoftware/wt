@@ -1,18 +1,19 @@
-# wt
+# treehouse
 
-[![release](https://img.shields.io/github/v/release/AirConditionedSoftware/wt)](https://github.com/AirConditionedSoftware/wt/releases)
-[![build](https://github.com/AirConditionedSoftware/wt/actions/workflows/release.yml/badge.svg)](https://github.com/AirConditionedSoftware/wt/actions/workflows/release.yml)
+[![release](https://img.shields.io/github/v/release/AirConditionedSoftware/treehouse)](https://github.com/AirConditionedSoftware/treehouse/releases)
+[![build](https://github.com/AirConditionedSoftware/treehouse/actions/workflows/release.yml/badge.svg)](https://github.com/AirConditionedSoftware/treehouse/actions/workflows/release.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A small CLI for managing git worktrees. Worktree placement is driven by a JSON
-config file and can be overridden per repository.
+treehouse (command: `th`) is a small CLI for managing git worktrees.
+Worktree placement is driven by a JSON config file and can be overridden
+per repository.
 
 ```console
-$ wt add feature/login
+$ th add feature/login
 Creating worktree with new branch "feature/login" from main
 /Users/you/worktrees/myapp/feature-login
 
-$ wt list
+$ th list
 * myapp [main]
   1a2b3c4d Merge pull request #7 (2 hours ago) | 0 unstaged
   feature-login [feature/login]
@@ -22,20 +23,20 @@ $ wt list
 ## Install
 
 ```sh
-brew install AirConditionedSoftware/tap/wt
+brew install AirConditionedSoftware/tap/treehouse
 ```
 
 Or grab a binary from
-[GitHub Releases](https://github.com/AirConditionedSoftware/wt/releases), or
+[GitHub Releases](https://github.com/AirConditionedSoftware/treehouse/releases), or
 install with Go:
 
 ```sh
-go install github.com/AirConditionedSoftware/wt@latest
+go install github.com/AirConditionedSoftware/treehouse/cmd/th@latest
 ```
 
 ## Usage
 
-- `wt list [--json]` — list all worktrees of the current repository, two
+- `th list [--json]` — list all worktrees of the current repository, two
   lines per worktree: the worktree name with its `[branch]`, then the last
   commit (hash, subject, age), the number of pending files (`N unstaged` —
   staged, unstaged, and untracked), and whether the branch is merged into
@@ -43,7 +44,7 @@ go install github.com/AirConditionedSoftware/wt@latest
   the default branch itself). The `*` marks the worktree you're in; locked
   and prunable worktrees carry inline tags, and `--json` has full paths and
   flags. The open and remove pickers show the same entries.
-- `wt add <branch> [--base <ref>] [--path <dir>]` — create a worktree:
+- `th add <branch> [--base <ref>] [--path <dir>]` — create a worktree:
   - branch exists locally → checked out as-is
   - branch exists on `origin` → local branch created tracking it (fetches
     once if the remote ref isn't known yet)
@@ -59,7 +60,7 @@ go install github.com/AirConditionedSoftware/wt@latest
     if one was written, the folder otherwise); `--no-open` overrides a
     `vscode_open` config that enables it
   - `--no-post-create` skips the config's `post_create` commands
-- `wt remove [branch...] [--force]` (aliases: `wt rm`, `wt -r`) — remove the
+- `th remove [branch...] [--force]` (aliases: `th rm`, `th -r`) — remove the
   worktrees that have the given branches checked out; the branches themselves
   are kept. Paths work too. With no arguments, an interactive picker lets you
   select one or more worktrees to delete, showing each branch's last commit
@@ -68,72 +69,72 @@ go install github.com/AirConditionedSoftware/wt@latest
   force or skip it — per worktree, so multi-removals decide each one;
   `--force`/`-f` skips the prompt, and non-interactive use errors and asks
   for `--force` instead of hanging. When `vscode_workspace_file` is enabled,
-  the wt-generated `.code-workspace` sibling is deleted along with the
+  the th-generated `.code-workspace` sibling is deleted along with the
   worktree.
-- `wt open [branch]` — open a worktree in VS Code: with no argument an
+- `th open [branch]` — open a worktree in VS Code: with no argument an
   interactive picker lists the worktrees, with a branch (or path) it opens
-  that one directly. Opens the wt-generated `.code-workspace` file when the
+  that one directly. Opens the th-generated `.code-workspace` file when the
   worktree has one, the folder otherwise. Only available when `vscode_open`
   is enabled for the repo — without it the command tells you what to set.
-- `wt prune [--dry-run]` — clean up git's bookkeeping for stale worktrees,
+- `th prune [--dry-run]` — clean up git's bookkeeping for stale worktrees,
   i.e. entries whose directories were deleted manually (tagged `prunable`
-  in `wt list`). Prints what it prunes; branches and existing directories
+  in `th list`). Prints what it prunes; branches and existing directories
   are untouched.
-- `wt du [--unit KB|MB|GB]` (alias: `wt disk`) — disk space used by each
+- `th du [--unit KB|MB|GB]` (alias: `th disk`) — disk space used by each
   worktree, largest first, plus a total. Sizes count the working files (the
   shared repository database in `.git` isn't attributed to any worktree);
   by default each row picks a readable unit, `--unit`/`-u` forces one.
-- `wt config` — print the config file location (stderr) and its content
-  (stdout, so `wt config | jq` works). Prints the built-in defaults if no
+- `th config` — print the config file location (stderr) and its content
+  (stdout, so `th config | jq` works). Prints the built-in defaults if no
   file exists, and fails loudly if the file is invalid. Run inside a repo
-  that has a `.wtrc`, it prints and validates that file too, after the
+  that has a `.thrc`, it prints and validates that file too, after the
   global one.
-- `wt config --effective` — print the fully merged settings for the
+- `th config --effective` — print the fully merged settings for the
   current repository as a table, with the layer each value came from:
-  `default`, `top-level`, `repos[N]`, or `.wtrc`. The layers consulted
-  (config file, matching `repos` entry, `.wtrc`) go to stderr. The
+  `default`, `top-level`, `repos[N]`, or `.thrc`. The layers consulted
+  (config file, matching `repos` entry, `.thrc`) go to stderr. The
   debuggable view of the [four-layer merge](#per-repository-overrides-repos).
-- `wt init [flags]` — create a starter repo-local `.wtrc` at the main
+- `th init [flags]` — create a starter repo-local `.thrc` at the main
   worktree root (refuses to overwrite an existing one) and print its path,
-  so `$EDITOR "$(wt init)"` opens it. Flags pre-fill fields — `--name`,
+  so `$EDITOR "$(th init)"` opens it. Flags pre-fill fields — `--name`,
   `--worktree-dir`, `--base`, `--prefix`, `--separator`, the repeatable
   `--copy-file` and `--post-create`, and the booleans `--copy-hooks`,
   `--open`, `--workspace-file` (written as `true` only when passed; an
   explicit `--copy-hooks=false` writes `false`, which overrides a global
   `true`) — as in
-  `wt init --prefix peter --separator - --base develop`. See "Repo-local
+  `th init --prefix peter --separator - --base develop`. See "Repo-local
   config" below.
-- `wt completion` — interactive wizard that sets up shell completion: pick
+- `th completion` — interactive wizard that sets up shell completion: pick
   your shell (preselected from `$SHELL`), get the line to add to its startup
   file copied to your clipboard, and the steps to finish.
-  `wt completion <bash|zsh|fish|powershell>` prints the raw script that the
+  `th completion <bash|zsh|fish|powershell>` prints the raw script that the
   installed line sources.
 
-Output is colored when stdout is a terminal: in `wt list` and the pickers,
+Output is colored when stdout is a terminal: in `th list` and the pickers,
 worktree names are bright, branches green, commit metadata gray, merge
 status green (merged) or yellow (not merged), and `locked`/`prunable` show
 as cyan/yellow inline tags — every status is also a plain word, so piped
-output keeps the information. `wt du` colors its header and TOTAL row.
+output keeps the information. `th du` colors its header and TOTAL row.
 Disable with `--no-color` or the [`NO_COLOR`](https://no-color.org)
 environment variable; piped output is always plain text.
 
 Paths under your home directory display as `~/...`; show absolute paths with
 the global `--full-paths` flag or the `full_paths` config setting.
-Machine-facing output — the path `wt add` prints on stdout and everything
+Machine-facing output — the path `th add` prints on stdout and everything
 `--json` — always uses full paths.
 
-`wt add` prints only the created path on stdout (everything else goes to
+`th add` prints only the created path on stdout (everything else goes to
 stderr), so you can hop straight into a new worktree with a shell function:
 
 ```sh
-wtcd() { cd "$(wt add "$1")"; }
+thcd() { cd "$(th add "$1")"; }
 ```
 
 ## Configuration
 
-Config lives at `~/.wt/wt.json`, or wherever `$WT_CONFIG` points. A missing
+Config lives at `~/.th/config.json`, or wherever `$TH_CONFIG` points. A missing
 file at the default location just means defaults; a missing file at an
-explicit `$WT_CONFIG` path is an error.
+explicit `$TH_CONFIG` path is an error.
 
 The full schema — every option shown, everything optional. All settings can
 be set at the top level (applying to every repo) and overridden per repo:
@@ -181,7 +182,7 @@ be set at the top level (applying to every repo) and overridden per repo:
 }
 ```
 
-A repository can also carry a `.wtrc` of its own, accepting the same
+A repository can also carry a `.thrc` of its own, accepting the same
 settings fields plus `name` — see "Repo-local config" below.
 
 One nuance when overriding: an explicit `false` in a repo entry *does*
@@ -196,9 +197,9 @@ falls through.
   expands to your home directory. Default: `~/worktrees/{repo}/{branch}`.
 - `default_base` — ref that brand-new branches start from. Default: current
   HEAD.
-- `branch_prefix` — prefix for branch names that `wt add` creates, joined to
+- `branch_prefix` — prefix for branch names that `th add` creates, joined to
   the name with `prefix_separator`: with `"branch_prefix": "peter"`,
-  `wt add fix-login` creates the branch `peter/fix-login`. A prefix that
+  `th add fix-login` creates the branch `peter/fix-login`. A prefix that
   already ends in the separator isn't doubled, so `"peter/"` works the same.
   Branches that already exist — with or without the prefix — are used as-is,
   and typing an already-prefixed name won't double-prefix it. Bypass for one
@@ -209,7 +210,7 @@ falls through.
   matters when `core.hooksPath` points inside the worktree (husky's
   `.husky`, a `.githooks` dir): git resolves such a path per worktree, so
   new worktrees silently lose the hooks. Plain `.git/hooks` needs no copying
-  — git already shares it across all worktrees, and wt says so instead of
+  — git already shares it across all worktrees, and th says so instead of
   copying. `--copy-hooks` / `--no-copy-hooks` override the config per
   invocation.
 - `copy_files` — untracked files to copy into each new worktree, as paths or
@@ -222,14 +223,14 @@ falls through.
 - `vscode_open` — open each new worktree in VS Code after creation (needs
   the `code` CLI on PATH; a missing CLI is a warning, not a failure). Opens
   the `.code-workspace` file when one is written, the folder otherwise.
-  `--open` / `--no-open` override per invocation. Also gates the `wt open`
+  `--open` / `--no-open` override per invocation. Also gates the `th open`
   command.
 - `vscode_workspace_file` — write a
   `<vscode_workspace_prefix><branch>.code-workspace` file for each new
   worktree, containing a `folders` array with the worktree path and
   `settings["window.title"]`. The file is created *next to* the worktree
   directory (a sibling, not inside it), so it never shows up as an untracked
-  file in git; `wt remove` cleans it up along with the worktree.
+  file in git; `th remove` cleans it up along with the worktree.
 - `vscode_workspace_prefix` — prefix for the workspace file's name, e.g.
   `"acs-"` → `acs-fix-login.code-workspace`. Default: none (just the
   sanitized branch name).
@@ -245,7 +246,7 @@ falls through.
   one.
 - `full_paths` — show absolute paths in tables, prompts, and messages
   instead of abbreviating your home directory to `~`. Same effect as the
-  global `--full-paths` flag. (`wt add`'s stdout path and `--json` output
+  global `--full-paths` flag. (`th add`'s stdout path and `--json` output
   always use full paths regardless.)
 - `post_create` — shell commands run inside each newly created worktree, in
   order via `sh -c`, after hooks and files are copied and before VS Code
@@ -254,19 +255,19 @@ falls through.
   survives. Skip once with `--no-post-create`. A repo entry's list
   *replaces* the global one; `[]` disables. **Security posture**: these are
   arbitrary commands by design. Commands in this file are user-owned and
-  run as written; commands that come from a repo's `.wtrc` run only
+  run as written; commands that come from a repo's `.thrc` run only
   after you approve them (see "Repo-local config" below), so a cloned repo
   can't inject commands silently. Worktree metadata reaches the commands as
-  environment variables (`WT_WORKTREE`, `WT_MAIN`, `WT_REPO`, `WT_BRANCH`)
+  environment variables (`TH_WORKTREE`, `TH_MAIN`, `TH_REPO`, `TH_BRANCH`)
   rather than being interpolated into the command string, so branch names
   containing shell metacharacters are inert. Do note that a command like
   `npm install` executes the checked-out branch's own install scripts — the
   same risk as running it yourself.
-- `update_check` — opt in to `wt --version` querying GitHub for the latest
+- `update_check` — opt in to `th --version` querying GitHub for the latest
   release and mentioning (on stderr) when a newer one exists. Off by
-  default; wt makes no network calls beyond git otherwise. Failures are
+  default; th makes no network calls beyond git otherwise. Failures are
   silent — a version query never breaks because the network did. Top-level
-  only: this is the one setting a repo's `.wtrc` cannot set, so a cloned
+  only: this is the one setting a repo's `.thrc` cannot set, so a cloned
   repository can never switch on network calls.
 - `repos` — per-repository overrides, explained below.
 
@@ -278,34 +279,34 @@ Flags always win over the config for that one invocation:
 
 | flag                             | config field    | notes                                                                                    |
 | -------------------------------- | --------------- | ---------------------------------------------------------------------------------------- |
-| `wt add --base <ref>`            | `default_base`  | one-off base for the new branch                                                           |
-| `wt add --path <dir>`            | `worktree_dir`  | flag is a literal one-off location; the config field is a `{repo}`/`{branch}` template    |
-| `wt add --no-prefix`             | `branch_prefix` | skips the configured prefix once                                                          |
-| `wt add --copy-hooks` / `--no-copy-hooks` | `copy_hooks` | force hook copying on or off once                                                |
-| `wt add --copy-file <glob>` / `--no-copy-files` | `copy_files` | `--copy-file` (repeatable) adds one-off entries; `--no-copy-files` skips the config list |
-| `wt add --open` / `--no-open`    | `vscode_open`   | force opening in VS Code on or off once                                                   |
-| `wt add --no-post-create`        | `post_create`   | skip the configured commands once                                                          |
+| `th add --base <ref>`            | `default_base`  | one-off base for the new branch                                                           |
+| `th add --path <dir>`            | `worktree_dir`  | flag is a literal one-off location; the config field is a `{repo}`/`{branch}` template    |
+| `th add --no-prefix`             | `branch_prefix` | skips the configured prefix once                                                          |
+| `th add --copy-hooks` / `--no-copy-hooks` | `copy_hooks` | force hook copying on or off once                                                |
+| `th add --copy-file <glob>` / `--no-copy-files` | `copy_files` | `--copy-file` (repeatable) adds one-off entries; `--no-copy-files` skips the config list |
+| `th add --open` / `--no-open`    | `vscode_open`   | force opening in VS Code on or off once                                                   |
+| `th add --no-post-create`        | `post_create`   | skip the configured commands once                                                          |
 | `--full-paths` (any command)     | `full_paths`    | show absolute paths instead of `~`                                                        |
 
-`--no-color` and `wt remove --force` are flag-only; `vscode_workspace_file`,
+`--no-color` and `th remove --force` are flag-only; `vscode_workspace_file`,
 `vscode_workspace_prefix`, `vscode_window_title`, `workspace_paths`, and
 `prefix_separator` are config-only.
 
-### Repo-local config (`.wtrc`)
+### Repo-local config (`.thrc`)
 
-A repository can keep its own config in a `.wtrc` at the root of its
+A repository can keep its own config in a `.thrc` at the root of its
 **main worktree**. It is never read from a linked worktree, but it applies
-whenever wt runs from any of the repo's worktrees — wt finds the main
-worktree through git. No file means nothing changes. `wt init` scaffolds
+whenever th runs from any of the repo's worktrees — th finds the main
+worktree through git. No file means nothing changes. `th init` scaffolds
 one (writing to the main worktree root even when run from a linked
-worktree) and prints its path, so `$EDITOR "$(wt init)"` opens it directly.
+worktree) and prints its path, so `$EDITOR "$(th init)"` opens it directly.
 Its flags pre-fill fields, e.g.
-`wt init --prefix peter --separator - --base develop`.
+`th init --prefix peter --separator - --base develop`.
 
 It holds the same settings fields as the global config, plus `name` (what
 `{repo}` expands to). `repos` and `path` are rejected, because the file
 already *is* repo-specific; unknown keys fail loudly as usual, and a broken
-`.wtrc` is an error like a broken global config. Since it lives in the
+`.thrc` is an error like a broken global config. Since it lives in the
 repo, it can be committed and shared with a team:
 
 ```json
@@ -318,31 +319,31 @@ repo, it can be committed and shared with a team:
 }
 ```
 
-A ready-made starting point lives at [examples/.wtrc](examples/.wtrc) — copy
-it to the repo root (`cp examples/.wtrc .wtrc`) and trim what you don't need.
+A ready-made starting point lives at [examples/.thrc](examples/.thrc) — copy
+it to the repo root (`cp examples/.thrc .thrc`) and trim what you don't need.
 
-`.wtrc` is the **top layer**: its values override both the global
+`.thrc` is the **top layer**: its values override both the global
 top-level fields and the repo's global `repos` entry, field by field, with
 the same merge rules as everywhere else — an empty string falls through to
 the layer below, a list replaces the list below it, and an explicit `false`
 overrides an inherited `true`.
 
-Because a committed `.wtrc` arrives with the repository, `post_create`
-commands that come from it run only after you approve them. `wt add`
+Because a committed `.thrc` arrives with the repository, `post_create`
+commands that come from it run only after you approve them. `th add`
 prompts the first time, showing the commands; approvals are remembered in
-`~/.wt/trust.json`, keyed by the repo's main worktree. Any later change to
+`~/.th/trust.json`, keyed by the repo's main worktree. Any later change to
 the repo's `post_create` — including one that arrives with a `git pull` —
 prompts again, showing a diff of the approved commands against the new
 ones:
 
 ```
-post_create in ~/code/myapp/.wtrc changed:
+post_create in ~/code/myapp/.thrc changed:
 
     direnv allow
   - npm install
   + npm ci
 
-Allow these commands to run after wt add? [Allow and remember / Skip this time]
+Allow these commands to run after th add? [Allow and remember / Skip this time]
 ```
 
 Declining skips `post_create` for that run and nothing else — the worktree
@@ -359,8 +360,8 @@ top-level ones:
 
 - `path` (required) — the path of the repo's main worktree, e.g.
   `~/code/myapp`. Before comparing, `~` is expanded and symlinks are
-  resolved on both sides, and because wt finds the main worktree through
-  git, the entry applies no matter which of the repo's worktrees you run wt
+  resolved on both sides, and because th finds the main worktree through
+  git, the entry applies no matter which of the repo's worktrees you run th
   from. The first matching entry wins.
 - `name` (optional) — what `{repo}` expands to in `worktree_dir` templates
   for this repo. Default: the directory basename of the main worktree.
@@ -372,25 +373,25 @@ top-level ones:
 Settings resolve in four layers, field by field:
 
 1. built-in defaults, overlaid with
-2. the top-level fields in wt.json, overlaid with
+2. the top-level fields in th.json, overlaid with
 3. the `repos` entry whose `path` matches, overlaid with
-4. the repo's own `.wtrc`, if it has one.
+4. the repo's own `.thrc`, if it has one.
 
 A layer only needs the fields it wants to change; anything it omits falls
 through to the layer below. With the example config above — and the
-`.wtrc` from the previous section sitting in `~/code/myapp` — running
-`wt add fix-login` inside `~/code/myapp` (or any of its worktrees) resolves
+`.thrc` from the previous section sitting in `~/code/myapp` — running
+`th add fix-login` inside `~/code/myapp` (or any of its worktrees) resolves
 to:
 
 | field              | value                         | comes from |
 | ------------------ | ----------------------------- | ---------- |
 | `worktree_dir`     | `~/code/myapp-trees/{branch}` | repo entry |
 | `default_base`     | `develop`                     | repo entry |
-| `branch_prefix`    | `team`                        | `.wtrc` |
-| `prefix_separator` | `-`                           | `.wtrc` |
-| `post_create`      | `["npm ci"]`                  | `.wtrc` |
+| `branch_prefix`    | `team`                        | `.thrc` |
+| `prefix_separator` | `-`                           | `.thrc` |
+| `post_create`      | `["npm ci"]`                  | `.thrc` |
 
-`.wtrc` has the last word on the bottom three rows: it repeats the
+`.thrc` has the last word on the bottom three rows: it repeats the
 entry's `branch_prefix` and `prefix_separator`, and its `post_create`
 replaces the entry's `["npm install", "direnv allow"]` — a repo-sourced
 list, so it needs approval before it runs. The created branch is
@@ -405,16 +406,16 @@ Repos without an entry need no configuration at all; `repos` is purely
 opt-in per repo. An entry without a `path` is rejected when the config is
 loaded.
 
-When the merge surprises you, `wt config --effective` prints exactly this
+When the merge surprises you, `th config --effective` prints exactly this
 table for the current repository — every setting's effective value and the
-layer it came from — plus which config file, `repos` entry, and `.wtrc`
+layer it came from — plus which config file, `repos` entry, and `.thrc`
 were consulted.
 
 ## Development
 
 ```sh
 go test ./...
-go build .
+go build ./cmd/th
 ```
 
 Requires the `git` binary on PATH (all git operations shell out; worktree
@@ -427,10 +428,11 @@ Actions. Every push to `main` runs the tests and, when code shipped in the
 binaries has changed since the last release (`*.go`, `go.mod`, `go.sum`, or
 `.goreleaser.yaml` — docs-only pushes don't release), bumps the patch
 version from the latest `v*` tag (`v0.2.0` → `v0.2.1`), pushes the new tag,
-and publishes a GitHub release with darwin/linux binaries for amd64/arm64. For a minor or
-major bump, push a tag yourself (`git tag v0.3.0 && git push origin main
-v0.3.0`) — the workflow releases exactly that version and later `main`
-pushes continue from it. Validate the goreleaser config locally with
+and publishes a GitHub release with darwin/linux binaries for amd64/arm64.
+A commit message containing `#minor` bumps the minor instead (`v0.2.x` →
+`v0.3.0`). For a major bump, push a tag yourself (`git tag v1.0.0 && git
+push origin main v1.0.0`) — the workflow releases exactly that version and
+later `main` pushes continue from it. Validate the goreleaser config locally with
 `goreleaser release --snapshot --clean`.
 
 Each release also updates the Homebrew cask in
@@ -448,7 +450,7 @@ so changes should land through pull requests.
 
 ## AI assistance
 
-wt was built in collaboration with Claude (Anthropic's Claude Code): the
+treehouse was built in collaboration with Claude (Anthropic's Claude Code): the
 design and feature decisions are human, most of the code was written by the
 model, and everything is human-reviewed, covered by the test suite, and
 verified end-to-end before release. Commits carry `Co-Authored-By` trailers

@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/AirConditionedSoftware/wt/internal/config"
-	"github.com/AirConditionedSoftware/wt/internal/gitx"
+	"github.com/AirConditionedSoftware/treehouse/internal/config"
+	"github.com/AirConditionedSoftware/treehouse/internal/gitx"
 	"github.com/spf13/cobra"
 )
 
@@ -26,18 +26,18 @@ var (
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Create a repo-local .wtrc",
-	Long: `Create a starter .wtrc at the root of the repository's main worktree —
-even when run from a linked worktree, since that is where wt reads it from.
+	Short: "Create a repo-local .thrc",
+	Long: `Create a starter .thrc at the root of the repository's main worktree —
+even when run from a linked worktree, since that is where th reads it from.
 The file holds per-repo settings that override the global config and its
 repos entry; it can be committed to share with a team.
 
 Flags pre-fill fields in the created file; fields whose flag is not given
 are left out, so the file stays a small starting point to edit:
 
-  wt init --prefix peter --separator - --base develop
+  th init --prefix peter --separator - --base develop
 
-The created path is the only output on stdout, so $EDITOR "$(wt init)"
+The created path is the only output on stdout, so $EDITOR "$(th init)"
 opens it directly.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -88,7 +88,7 @@ opens it directly.`,
 		fmt.Fprintln(os.Stderr, "Fields: worktree_dir, default_base, branch_prefix, prefix_separator,")
 		fmt.Fprintln(os.Stderr, "  copy_hooks, copy_files, workspace_paths, full_paths, post_create,")
 		fmt.Fprintln(os.Stderr, "  vscode_* — see the README's Configuration section.")
-		fmt.Fprintln(os.Stderr, "If committed, post_create commands from this file need one-time approval on wt add.")
+		fmt.Fprintln(os.Stderr, "If committed, post_create commands from this file need one-time approval on th add.")
 		fmt.Println(path)
 		return nil
 	},

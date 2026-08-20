@@ -1,4 +1,4 @@
-module github.com/AirConditionedSoftware/wt
+module github.com/AirConditionedSoftware/treehouse
 
 go 1.25.5
 

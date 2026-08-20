@@ -30,7 +30,7 @@ func TestPathDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(home, ".wt", "wt.json")
+	want := filepath.Join(home, ".th", "config.json")
 	if p != want || explicit {
 		t.Errorf("Path() = %q, explicit=%v; want %q, false", p, explicit, want)
 	}
@@ -51,12 +51,12 @@ func TestLoadMissingDefaultIsEmpty(t *testing.T) {
 func TestLoadMissingExplicitFails(t *testing.T) {
 	t.Setenv(EnvVar, filepath.Join(t.TempDir(), "nope.json"))
 	if _, err := Load(); err == nil {
-		t.Error("Load() with missing $WT_CONFIG file should fail")
+		t.Error("Load() with missing $TH_CONFIG file should fail")
 	}
 }
 
 func TestLoadUnknownFieldFails(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "wt.json")
+	p := filepath.Join(t.TempDir(), "th.json")
 	if err := os.WriteFile(p, []byte(`{"worktre_dir": "/x"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestLoadUnknownFieldFails(t *testing.T) {
 }
 
 func TestLoadAndFor(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "wt.json")
+	p := filepath.Join(t.TempDir(), "th.json")
 	content := `{
   "worktree_dir": "/global/{repo}/{branch}",
   "default_base": "main",
@@ -122,7 +122,7 @@ func TestLoadAndFor(t *testing.T) {
 }
 
 func TestUpdateCheckTopLevelOnly(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "wt.json")
+	p := filepath.Join(t.TempDir(), "th.json")
 	if err := os.WriteFile(p, []byte(`{"update_check": true}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -138,13 +138,13 @@ func TestUpdateCheckTopLevelOnly(t *testing.T) {
 		t.Error("update check must be off by default")
 	}
 
-	// A repo's .wtrc must not be able to switch on network calls.
+	// A repo's .thrc must not be able to switch on network calls.
 	repo := t.TempDir()
 	if err := os.WriteFile(filepath.Join(repo, LocalFileName), []byte(`{"update_check": true}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Resolve(repo); err == nil || !strings.Contains(err.Error(), "update_check") {
-		t.Errorf("Resolve with update_check in .wtrc: err = %v; want unknown-field rejection", err)
+		t.Errorf("Resolve with update_check in .thrc: err = %v; want unknown-field rejection", err)
 	}
 }
 
@@ -157,7 +157,7 @@ func TestForPathBuiltinDefaults(t *testing.T) {
 }
 
 func TestLoadWorkspacePathMissingPathFails(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "wt.json")
+	p := filepath.Join(t.TempDir(), "th.json")
 	content := `{"repos": [{"path": "/x", "workspace_paths": [{"name": "docs"}]}]}`
 	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
@@ -170,7 +170,7 @@ func TestLoadWorkspacePathMissingPathFails(t *testing.T) {
 }
 
 func TestLoadRepoMissingPathFails(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "wt.json")
+	p := filepath.Join(t.TempDir(), "th.json")
 	if err := os.WriteFile(p, []byte(`{"repos": [{"name": "myapp"}]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -182,11 +182,11 @@ func TestLoadRepoMissingPathFails(t *testing.T) {
 }
 
 // writeGlobalForRepo writes a global config whose repos entry matches main,
-// points $WT_CONFIG at it, and returns the settings that entry resolves to
-// with no .wtrc present.
+// points $TH_CONFIG at it, and returns the settings that entry resolves to
+// with no .thrc present.
 func writeGlobalForRepo(t *testing.T, main string) Settings {
 	t.Helper()
-	p := filepath.Join(t.TempDir(), "wt.json")
+	p := filepath.Join(t.TempDir(), "th.json")
 	content := fmt.Sprintf(`{
   "worktree_dir": "/global/{repo}/{branch}",
   "default_base": "main",
@@ -219,7 +219,7 @@ func TestResolveLayers(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		local string // .wtrc content; "" means no file
+		local string // .thrc content; "" means no file
 		want  Resolved
 	}{
 		{
@@ -306,7 +306,7 @@ func TestResolveWithoutLocalMatchesForPath(t *testing.T) {
 		t.Errorf("Resolve() = %+v, %q; want ForPath result %+v, %q", got.Settings, got.RepoName, want, wantName)
 	}
 	if got.LocalFile != "" || got.PostCreateFromRepo {
-		t.Errorf("Resolve() with no .wtrc: LocalFile = %q, PostCreateFromRepo = %v; want \"\", false", got.LocalFile, got.PostCreateFromRepo)
+		t.Errorf("Resolve() with no .thrc: LocalFile = %q, PostCreateFromRepo = %v; want \"\", false", got.LocalFile, got.PostCreateFromRepo)
 	}
 }
 
@@ -365,7 +365,7 @@ func TestResolveLocalErrors(t *testing.T) {
 func TestResolveGlobalConfigErrorPropagates(t *testing.T) {
 	t.Setenv(EnvVar, filepath.Join(t.TempDir(), "nope.json"))
 	if _, err := Resolve(t.TempDir()); err == nil {
-		t.Error("Resolve() with a missing $WT_CONFIG file should fail")
+		t.Error("Resolve() with a missing $TH_CONFIG file should fail")
 	}
 }
 
@@ -434,7 +434,7 @@ func TestResolveDetailedProvenance(t *testing.T) {
 		t.Errorf("matched entry = repos[%d] (%q); want repos[0] (%q)", prov.ReposIndex, prov.ReposPath, main)
 	}
 	wantFields := map[string]string{
-		"name":             SourceLocal, // .wtrc name over the entry's
+		"name":             SourceLocal, // .thrc name over the entry's
 		"worktree_dir":     SourceTopLevel,
 		"default_base":     "repos[0]",
 		"branch_prefix":    SourceLocal, // over the top-level "peter"
@@ -452,7 +452,7 @@ func TestResolveDetailedProvenance(t *testing.T) {
 }
 
 func TestResolveGlobal(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "wt.json")
+	p := filepath.Join(t.TempDir(), "th.json")
 	if err := os.WriteFile(p, []byte(`{"default_base": "main"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}

@@ -1,5 +1,5 @@
 name: Bug report
-description: Something wt did wrong
+description: Something th did wrong
 labels: ["bug"]
 body:
   - type: textarea
@@ -19,14 +19,14 @@ body:
   - type: textarea
     id: config
     attributes:
-      label: wt config
-      description: Output of `wt config` (redact anything private).
+      label: th config
+      description: Output of `th config` (redact anything private).
       render: json
   - type: input
     id: version
     attributes:
-      label: wt version
-      description: Output of `wt --version`.
+      label: th version
+      description: Output of `th --version`.
     validations:
       required: true
   - type: input

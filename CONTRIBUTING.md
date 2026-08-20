@@ -1,4 +1,4 @@
-# Contributing to wt
+# Contributing to treehouse
 
 Thanks for taking an interest — issues and pull requests are welcome.
 
@@ -7,7 +7,7 @@ Thanks for taking an interest — issues and pull requests are welcome.
 Go 1.25+ and git are the only requirements.
 
 ```sh
-go build .        # produces ./wt
+go build ./cmd/th  # produces ./th
 go test ./...     # unit + end-to-end tests
 go vet ./...
 gofmt -l .        # should print nothing
@@ -23,14 +23,14 @@ PATH but never touch your own repositories or config.
   `config`)
 - `internal/gitx/` — thin wrapper that shells out to git and parses
   `git worktree list --porcelain`
-- `internal/config/` — wt.json loading, per-repo resolution, path templating
+- `internal/config/` — th.json loading, per-repo resolution, path templating
 
 Conventions worth keeping:
 
 - All git operations shell out to the `git` binary; porcelain output is the
   interface. No go-git.
-- stdout discipline: `wt add` prints only the created path on stdout so
-  `cd "$(wt add x)"` works; everything else goes to stderr.
+- stdout discipline: `th add` prints only the created path on stdout so
+  `cd "$(th add x)"` works; everything else goes to stderr.
 - Config fields merge in three layers (built-in defaults ← top-level ←
   matching `repos` entry). New settings should follow the existing merge
   pattern — use a pointer type when a per-repo `false` must override a

@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/AirConditionedSoftware/wt/internal/config"
-	"github.com/AirConditionedSoftware/wt/internal/gitx"
+	"github.com/AirConditionedSoftware/treehouse/internal/config"
+	"github.com/AirConditionedSoftware/treehouse/internal/gitx"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -46,7 +46,7 @@ func runRemove(args []string) error {
 // one and the one the user is standing in.
 func removeInteractive() error {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		return errors.New("interactive selection needs a terminal; pass branch names instead (see wt list)")
+		return errors.New("interactive selection needs a terminal; pass branch names instead (see th list)")
 	}
 
 	wts, err := gitx.ListWorktrees(".")
@@ -175,7 +175,7 @@ func removeWorktree(name string) error {
 
 	target := findWorktree(wts, name)
 	if target == nil {
-		return fmt.Errorf("no worktree found for %q (see wt list)", name)
+		return fmt.Errorf("no worktree found for %q (see th list)", name)
 	}
 
 	if target.Path == wts[0].Path {
@@ -214,9 +214,9 @@ func removeWorktree(name string) error {
 		return err
 	}
 
-	// The wt-generated workspace file lives next to the worktree; clean it
-	// up too so it doesn't orphan. Only when wt manages workspace files for
-	// this repo — never delete files wt didn't create.
+	// The th-generated workspace file lives next to the worktree; clean it
+	// up too so it doesn't orphan. Only when th manages workspace files for
+	// this repo — never delete files th didn't create.
 	if cfgErr == nil && res.VSCodeWorkspaceFileEnabled() {
 		if ws := workspaceFilePath(res.Settings, target.Path, target.Branch); ws != "" {
 			if err := os.Remove(ws); err == nil {
