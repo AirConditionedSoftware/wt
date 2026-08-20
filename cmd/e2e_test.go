@@ -1059,6 +1059,56 @@ func TestEndToEnd(t *testing.T) {
 		}
 	})
 
+	t.Run("config --effective shows merged settings with sources", func(t *testing.T) {
+		cfgEff := filepath.Join(work, "wt-effective.json")
+		cfgEffJSON := `{
+  "default_base": "main",
+  "branch_prefix": "global",
+  "repos": [{"name": "entryname", "path": "` + repo + `", "branch_prefix": "team"}]
+}`
+		if err := os.WriteFile(cfgEff, []byte(cfgEffJSON), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(localCfg, []byte(`{"name": "localname", "copy_files": [".env"]}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(localCfg)
+
+		out, stderr, err := wt(t, home, cfgEff, repo, "config", "--effective")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		for _, want := range []string{cfgEff, "repos[0] matches", "repo-local"} {
+			if !strings.Contains(stderr, want) {
+				t.Errorf("stderr = %q; want it to mention %q", stderr, want)
+			}
+		}
+		for _, row := range [][3]string{
+			{"name", "localname", ".wtrc"},
+			{"worktree_dir", "~/worktrees/{repo}/{branch}", "default"},
+			{"default_base", "main", "top-level"},
+			{"branch_prefix", "team", "repos[0]"},
+			{"copy_files", `[".env"]`, ".wtrc"},
+			{"copy_hooks", "false", "default"},
+		} {
+			assertEffectiveRow(t, out, row[0], row[1], row[2])
+		}
+	})
+
+	t.Run("config --effective outside a repository", func(t *testing.T) {
+		out, stderr, err := wt(t, home, "", work, "config", "--effective")
+		if err != nil {
+			t.Fatalf("%v\n%s", err, stderr)
+		}
+		if !strings.Contains(stderr, "not inside a git repository") {
+			t.Errorf("stderr = %q; want not-a-repository notice", stderr)
+		}
+		assertEffectiveRow(t, out, "worktree_dir", "~/worktrees/{repo}/{branch}", "default")
+		if strings.Contains(out, "\nname ") {
+			t.Errorf("stdout = %q; want no name row outside a repository", out)
+		}
+	})
+
 	t.Run("init scaffolds a repo-local .wtrc", func(t *testing.T) {
 		out, stderr, err := wt(t, home, cfg, repo, "init")
 		if err != nil {
@@ -1237,4 +1287,20 @@ func TestEndToEnd(t *testing.T) {
 			t.Errorf("checked-out branch = %q; want team/gadget", got)
 		}
 	})
+}
+
+// assertEffectiveRow checks that the config --effective table has a row for
+// setting carrying the given value and source.
+func assertEffectiveRow(t *testing.T, out, setting, value, source string) {
+	t.Helper()
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) > 0 && fields[0] == setting {
+			if len(fields) < 3 || fields[1] != value || fields[len(fields)-1] != source {
+				t.Errorf("row %q = %q; want value %q from %q", setting, line, value, source)
+			}
+			return
+		}
+	}
+	t.Errorf("no %q row in output:\n%s", setting, out)
 }

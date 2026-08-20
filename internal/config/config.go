@@ -222,35 +222,104 @@ type Resolved struct {
 	PostCreateFromRepo bool
 }
 
+// Source labels for Provenance: the layer an effective value came from.
+const (
+	SourceDefault  = "default"
+	SourceTopLevel = "top-level"
+	SourceLocal    = LocalFileName
+)
+
+// Provenance records which layer set each effective value.
+type Provenance struct {
+	// Fields maps a setting's JSON name to the label of the layer that
+	// last set it: SourceTopLevel, "repos[N]", or SourceLocal. Settings
+	// no layer set are absent — their values are built-in defaults.
+	Fields map[string]string
+	// ReposIndex is the index of the repos entry that matched, -1 if none.
+	ReposIndex int
+	// ReposPath is the matching repos entry's configured path, "" if none.
+	ReposPath string
+}
+
+// Source returns the label of the layer that set the field with the given
+// JSON name, SourceDefault when no layer did.
+func (p Provenance) Source(field string) string {
+	if s, ok := p.Fields[field]; ok {
+		return s
+	}
+	return SourceDefault
+}
+
+// mark records label as the source of every field the layer explicitly
+// sets, and of "name" when the layer names the repo.
+func (p Provenance) mark(s Settings, name, label string) {
+	for _, f := range s.setFields() {
+		p.Fields[f] = label
+	}
+	if name != "" {
+		p.Fields["name"] = label
+	}
+}
+
 // Resolve returns the effective settings for the repository whose main
 // worktree is at mainPath, layering built-in defaults, the global config's
 // top-level settings, its matching repos entry, and finally the repo's own
 // .wtrc. Each layer overrides field by field: empty strings fall through,
 // lists and booleans that are set replace the layer below.
 func Resolve(mainPath string) (Resolved, error) {
+	resolved, _, err := ResolveDetailed(mainPath)
+	return resolved, err
+}
+
+// ResolveDetailed is Resolve, additionally reporting where each effective
+// value came from.
+func ResolveDetailed(mainPath string) (Resolved, Provenance, error) {
+	prov := Provenance{Fields: map[string]string{}, ReposIndex: -1}
 	cfg, err := Load()
 	if err != nil {
-		return Resolved{}, err
+		return Resolved{}, prov, err
 	}
-	settings, name := cfg.ForPath(mainPath)
+	settings, name, idx := cfg.forPath(mainPath)
+	prov.mark(cfg.Settings, "", SourceTopLevel)
+	if idx >= 0 {
+		r := cfg.Repos[idx]
+		prov.mark(r.Settings, r.Name, fmt.Sprintf("repos[%d]", idx))
+		prov.ReposIndex, prov.ReposPath = idx, r.Path
+	}
 	resolved := Resolved{Settings: settings, RepoName: name}
 
 	local, path, err := loadLocal(mainPath)
 	if err != nil {
-		return Resolved{}, err
+		return Resolved{}, prov, err
 	}
 	if local == nil {
-		return resolved, nil
+		return resolved, prov, nil
 	}
 	resolved.LocalFile = path
 	resolved.Settings.merge(local.Settings)
+	prov.mark(local.Settings, local.Name, SourceLocal)
 	if local.Name != "" {
 		resolved.RepoName = local.Name
 	}
 	// An explicit [] clears the inherited commands and still counts as
 	// repo-sourced, so the approval gate sees the repo's decision.
 	resolved.PostCreateFromRepo = local.PostCreate != nil
-	return resolved, nil
+	return resolved, prov, nil
+}
+
+// ResolveGlobal resolves only the repo-independent layers — built-in
+// defaults and the config file's top-level settings — for use outside any
+// repository.
+func ResolveGlobal() (Resolved, Provenance, error) {
+	prov := Provenance{Fields: map[string]string{}, ReposIndex: -1}
+	cfg, err := Load()
+	if err != nil {
+		return Resolved{}, prov, err
+	}
+	s := Settings{WorktreeDir: DefaultWorktreeDir}
+	s.merge(cfg.Settings)
+	prov.mark(cfg.Settings, "", SourceTopLevel)
+	return Resolved{Settings: s}, prov, nil
 }
 
 // ForPath returns the effective settings for the repository whose main
@@ -259,16 +328,23 @@ func Resolve(mainPath string) (Resolved, error) {
 // The second return is the matching entry's name ("" when unnamed or no
 // entry matches).
 func (f *File) ForPath(mainPath string) (Settings, string) {
+	s, name, _ := f.forPath(mainPath)
+	return s, name
+}
+
+// forPath is ForPath, also returning the index of the repos entry that
+// matched (-1 if none), for provenance.
+func (f *File) forPath(mainPath string) (Settings, string, int) {
 	s := Settings{WorktreeDir: DefaultWorktreeDir}
 	s.merge(f.Settings)
 	target := normalizePath(mainPath)
-	for _, r := range f.Repos {
+	for i, r := range f.Repos {
 		if normalizePath(r.Path) == target {
 			s.merge(r.Settings)
-			return s, r.Name
+			return s, r.Name, i
 		}
 	}
-	return s, ""
+	return s, "", -1
 }
 
 func (s *Settings) merge(over Settings) {
@@ -311,6 +387,32 @@ func (s *Settings) merge(over Settings) {
 	if over.PostCreate != nil {
 		s.PostCreate = over.PostCreate
 	}
+}
+
+// setFields lists the JSON names of the fields s explicitly sets — the
+// same per-field conditions merge uses to let a layer override the one
+// below. A test keeps the two (and the Settings struct) in sync.
+func (s Settings) setFields() []string {
+	var fields []string
+	set := func(name string, isSet bool) {
+		if isSet {
+			fields = append(fields, name)
+		}
+	}
+	set("worktree_dir", s.WorktreeDir != "")
+	set("default_base", s.DefaultBase != "")
+	set("branch_prefix", s.BranchPrefix != "")
+	set("prefix_separator", s.PrefixSeparator != "")
+	set("copy_hooks", s.CopyHooks != nil)
+	set("copy_files", s.CopyFiles != nil)
+	set("vscode_open", s.VSCodeOpen != nil)
+	set("vscode_workspace_file", s.VSCodeWorkspaceFile != nil)
+	set("vscode_workspace_prefix", s.VSCodeWorkspacePrefix != "")
+	set("vscode_window_title", s.VSCodeWindowTitle != "")
+	set("workspace_paths", s.WorkspacePaths != nil)
+	set("full_paths", s.FullPaths != nil)
+	set("post_create", s.PostCreate != nil)
+	return fields
 }
 
 // FullPathsEnabled reports whether full_paths is set and true.
