@@ -10,8 +10,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/AirConditionedSoftware/wt/internal/config"
-	"github.com/AirConditionedSoftware/wt/internal/gitx"
+	"github.com/AirConditionedSoftware/treehouse/internal/config"
+	"github.com/AirConditionedSoftware/treehouse/internal/gitx"
 	"github.com/spf13/cobra"
 )
 
@@ -21,12 +21,12 @@ var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Print the config file location and content",
 	Long: `Print the config file location and its content. The location goes to stderr
-and the content to stdout, so wt config | jq works. If no file exists at the
+and the content to stdout, so th config | jq works. If no file exists at the
 default location, the built-in defaults are printed instead.
 
 With --effective, print instead the fully merged settings for the current
 repository and the layer each value came from: built-in defaults, the config
-file's top-level settings, its matching repos entry, and the repo's .wtrc,
+file's top-level settings, its matching repos entry, and the repo's .thrc,
 layered in that order.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -63,7 +63,7 @@ layered in that order.`,
 			fmt.Println()
 		}
 
-		// A repo's own .wtrc is part of its effective config, so print it
+		// A repo's own .thrc is part of its effective config, so print it
 		// as a second document (the stdout stream stays jq-parseable).
 		// Outside a repository there is nothing to look for.
 		if wts, err := gitx.ListWorktrees("."); err == nil && len(wts) > 0 {
@@ -75,7 +75,7 @@ layered in that order.`,
 				if len(local) > 0 && local[len(local)-1] != '\n' {
 					fmt.Println()
 				}
-				// Resolve parses the repo-local file, so wt config validates
+				// Resolve parses the repo-local file, so th config validates
 				// it just like the global one.
 				if _, err := config.Resolve(mainPath); err != nil {
 					return err
@@ -83,7 +83,7 @@ layered in that order.`,
 			}
 		}
 
-		// Surface parse errors so wt config doubles as a validity check.
+		// Surface parse errors so th config doubles as a validity check.
 		if _, err := config.Load(); err != nil {
 			return err
 		}
@@ -187,7 +187,7 @@ func runConfigEffective() error {
 
 // sourceStyle colors a row by the layer that set it, so a glance separates
 // config-driven values from defaults: defaults gray, repos-entry cyan,
-// .wtrc green; top-level plain.
+// .thrc green; top-level plain.
 func sourceStyle(source string) string {
 	switch {
 	case source == config.SourceDefault:

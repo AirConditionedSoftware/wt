@@ -14,7 +14,7 @@ func trustHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	return filepath.Join(home, ".wt", TrustFileName)
+	return filepath.Join(home, ".th", TrustFileName)
 }
 
 func TestApprovePostCreateRoundTrip(t *testing.T) {
@@ -139,6 +139,6 @@ func TestTrustFileIgnoresWTConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(path); err != nil {
-		t.Errorf("trust file should live at ~/.wt/%s regardless of $%s: %v", TrustFileName, EnvVar, err)
+		t.Errorf("trust file should live at ~/.th/%s regardless of $%s: %v", TrustFileName, EnvVar, err)
 	}
 }

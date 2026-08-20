@@ -10,8 +10,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/AirConditionedSoftware/wt/internal/config"
-	"github.com/AirConditionedSoftware/wt/internal/gitx"
+	"github.com/AirConditionedSoftware/treehouse/internal/config"
+	"github.com/AirConditionedSoftware/treehouse/internal/gitx"
 	"github.com/spf13/cobra"
 )
 

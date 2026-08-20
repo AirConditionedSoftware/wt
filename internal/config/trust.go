@@ -9,11 +9,11 @@ import (
 )
 
 // TrustFileName is the approval store for repo-sourced post_create commands.
-// It lives at ~/.wt/trust.json regardless of $WT_CONFIG: it is per-user
+// It lives at ~/.th/trust.json regardless of $TH_CONFIG: it is per-user
 // machine state, not configuration, and must not travel with a config file.
 const TrustFileName = "trust.json"
 
-// trustFile is the ~/.wt/trust.json schema, keyed by normalized main
+// trustFile is the ~/.th/trust.json schema, keyed by normalized main
 // worktree path.
 type trustFile struct {
 	Repos map[string]trustRecord `json:"repos"`
@@ -31,11 +31,11 @@ func trustPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".wt", TrustFileName), nil
+	return filepath.Join(home, homeConfigDirName, TrustFileName), nil
 }
 
 // readTrust loads the store best-effort: a missing, unreadable or corrupt
-// file reads as empty, so a damaged store re-prompts instead of wedging wt.
+// file reads as empty, so a damaged store re-prompts instead of wedging th.
 func readTrust() trustFile {
 	path, err := trustPath()
 	if err != nil {

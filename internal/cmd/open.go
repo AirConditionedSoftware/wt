@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/AirConditionedSoftware/wt/internal/config"
-	"github.com/AirConditionedSoftware/wt/internal/gitx"
+	"github.com/AirConditionedSoftware/treehouse/internal/config"
+	"github.com/AirConditionedSoftware/treehouse/internal/gitx"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -17,10 +17,10 @@ var openCmd = &cobra.Command{
 	Short: "Open a worktree in VS Code",
 	Long: `Open a worktree of the current repository in VS Code. With no argument an
 interactive picker lists the worktrees; with a branch (or path) it opens that
-worktree directly. The wt-generated .code-workspace file is opened when the
+worktree directly. The th-generated .code-workspace file is opened when the
 worktree has one, the folder otherwise.
 
-Only available when vscode_open is enabled for the repo in the wt config.`,
+Only available when vscode_open is enabled for the repo in the th config.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runOpen,
 }
@@ -39,13 +39,13 @@ func runOpen(cmd *cobra.Command, args []string) error {
 	applyDisplayConfig(settings)
 	if !settings.VSCodeOpenEnabled() {
 		cfgPath, _, _ := config.Path()
-		return fmt.Errorf("vscode_open is not enabled for this repo; set \"vscode_open\": true (globally or in this repo's entry) in %s to use wt open", cfgPath)
+		return fmt.Errorf("vscode_open is not enabled for this repo; set \"vscode_open\": true (globally or in this repo's entry) in %s to use th open", cfgPath)
 	}
 
 	var target *gitx.Worktree
 	if len(args) == 1 {
 		if target = findWorktree(wts, args[0]); target == nil {
-			return fmt.Errorf("no worktree found for %q (see wt list)", args[0])
+			return fmt.Errorf("no worktree found for %q (see th list)", args[0])
 		}
 	} else {
 		if target, err = pickWorktree(wts); err != nil {
@@ -61,7 +61,7 @@ func runOpen(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// openTargetFor returns the wt-generated workspace file when the worktree
+// openTargetFor returns the th-generated workspace file when the worktree
 // has one, else the worktree folder.
 func openTargetFor(w gitx.Worktree, settings config.Settings) string {
 	if ws := workspaceFilePath(settings, w.Path, w.Branch); ws != "" {
@@ -76,7 +76,7 @@ func openTargetFor(w gitx.Worktree, settings config.Settings) string {
 // as the remove picker.
 func pickWorktree(wts []gitx.Worktree) (*gitx.Worktree, error) {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		return nil, errors.New("interactive selection needs a terminal; pass a branch name (see wt list)")
+		return nil, errors.New("interactive selection needs a terminal; pass a branch name (see th list)")
 	}
 
 	infos := worktreeInfos(wts)

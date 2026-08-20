@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/AirConditionedSoftware/wt/internal/config"
-	"github.com/AirConditionedSoftware/wt/internal/gitx"
+	"github.com/AirConditionedSoftware/treehouse/internal/config"
+	"github.com/AirConditionedSoftware/treehouse/internal/gitx"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +15,7 @@ var pruneCmd = &cobra.Command{
 	Use:   "prune",
 	Short: "Clean up stale worktree entries",
 	Long: `Remove git's bookkeeping for stale worktrees — entries whose directories
-have been deleted manually, shown as "prunable" in wt list. Only
+have been deleted manually, shown as "prunable" in th list. Only
 .git/worktrees metadata is cleaned; branches are kept.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {

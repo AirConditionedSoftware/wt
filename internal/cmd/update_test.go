@@ -60,14 +60,14 @@ func serveLatest(t *testing.T, status int, body string) {
 	t.Cleanup(func() { latestReleaseAPI = prev })
 }
 
-// writeUpdateConfig points WT_CONFIG at a config with the given content.
+// writeUpdateConfig points TH_CONFIG at a config with the given content.
 func writeUpdateConfig(t *testing.T, content string) {
 	t.Helper()
-	p := filepath.Join(t.TempDir(), "wt.json")
+	p := filepath.Join(t.TempDir(), "th.json")
 	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("WT_CONFIG", p)
+	t.Setenv("TH_CONFIG", p)
 }
 
 func TestUpdateNotice(t *testing.T) {

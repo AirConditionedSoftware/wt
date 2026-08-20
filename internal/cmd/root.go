@@ -10,10 +10,11 @@ import (
 var rootRemove bool
 
 var rootCmd = &cobra.Command{
-	Use:   "wt",
+	Use:   "th",
 	Short: "Manage git worktrees",
-	Long: `wt manages git worktrees: list the worktrees of the current repository and
-create new ones in locations driven by ~/.wt/wt.json (or $WT_CONFIG).`,
+	Long: `treehouse (th) manages git worktrees: list the worktrees of the current
+repository and create new ones in locations driven by ~/.th/config.json (or
+$TH_CONFIG).`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	Args:          cobra.ArbitraryArgs,
@@ -22,7 +23,7 @@ create new ones in locations driven by ~/.wt/wt.json (or $WT_CONFIG).`,
 			return runRemove(args)
 		}
 		if len(args) > 0 {
-			return fmt.Errorf("unknown command %q for \"wt\"", args[0])
+			return fmt.Errorf("unknown command %q for \"th\"", args[0])
 		}
 		return cmd.Help()
 	},
@@ -31,14 +32,14 @@ create new ones in locations driven by ~/.wt/wt.json (or $WT_CONFIG).`,
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output (also disabled when NO_COLOR is set or stdout is not a terminal)")
 	rootCmd.PersistentFlags().BoolVar(&fullPathsFlag, "full-paths", false, "show absolute paths instead of abbreviating the home directory to ~")
-	rootCmd.Flags().BoolVarP(&rootRemove, "remove", "r", false, "remove worktrees (shorthand for wt remove); with no branch, select interactively")
+	rootCmd.Flags().BoolVarP(&rootRemove, "remove", "r", false, "remove worktrees (shorthand for th remove); with no branch, select interactively")
 	rootCmd.Flags().BoolVarP(&removeForce, "force", "f", false, "with -r: remove even if the worktree is dirty or locked")
 }
 
 func Execute(version string) {
 	rootCmd.Version = version
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "wt: "+err.Error())
+		fmt.Fprintln(os.Stderr, "th: "+err.Error())
 		os.Exit(1)
 	}
 	if versionRequested(os.Args[1:]) {

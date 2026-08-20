@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AirConditionedSoftware/wt/internal/config"
+	"github.com/AirConditionedSoftware/treehouse/internal/config"
 )
 
 var (
@@ -26,7 +26,7 @@ func fullPathsEnabled() bool {
 // displayPath abbreviates the user's home directory to ~ for human-facing
 // output (tables, prompts, stderr messages) unless full paths are requested
 // via --full-paths or the full_paths config setting. Machine-facing output —
-// the path wt add prints on stdout, --json — keeps full paths.
+// the path th add prints on stdout, --json — keeps full paths.
 func displayPath(p string) string {
 	if fullPathsEnabled() {
 		return p

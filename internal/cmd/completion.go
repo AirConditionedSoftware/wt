@@ -12,7 +12,7 @@ import (
 	"golang.org/x/term"
 )
 
-// shellSetup describes how one shell enables wt completion.
+// shellSetup describes how one shell enables th completion.
 type shellSetup struct {
 	name    string
 	rcFile  string
@@ -26,27 +26,27 @@ func shellSetups() []shellSetup {
 		{
 			name:    "zsh",
 			rcFile:  "~/.zshrc",
-			snippet: "source <(wt completion zsh)",
+			snippet: "source <(th completion zsh)",
 			reload:  "source ~/.zshrc",
 			note:    `if completion isn't already enabled in your zsh, add "autoload -U compinit; compinit" above that line.`,
 		},
 		{
 			name:    "bash",
 			rcFile:  "~/.bashrc",
-			snippet: "source <(wt completion bash)",
+			snippet: "source <(th completion bash)",
 			reload:  "source ~/.bashrc",
 			note:    "on macOS your terminal may read ~/.bash_profile instead of ~/.bashrc.",
 		},
 		{
 			name:    "fish",
 			rcFile:  "~/.config/fish/config.fish",
-			snippet: "wt completion fish | source",
+			snippet: "th completion fish | source",
 			reload:  "source ~/.config/fish/config.fish",
 		},
 		{
 			name:    "powershell",
 			rcFile:  "$PROFILE",
-			snippet: "wt completion powershell | Out-String | Invoke-Expression",
+			snippet: "th completion powershell | Out-String | Invoke-Expression",
 			reload:  ". $PROFILE",
 		},
 	}
@@ -55,7 +55,7 @@ func shellSetups() []shellSetup {
 var completionCmd = &cobra.Command{
 	Use:   "completion [bash|zsh|fish|powershell]",
 	Short: "Set up shell completion",
-	Long: `Set up shell completion for wt.
+	Long: `Set up shell completion for th.
 
 With no argument, an interactive wizard asks for your shell, shows the line
 to add to its startup file, and copies that line to your clipboard.
@@ -89,7 +89,7 @@ func writeCompletionScript(shell string) error {
 
 func completionWizard() error {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		return errors.New("interactive setup needs a terminal; run wt completion <bash|zsh|fish|powershell> instead")
+		return errors.New("interactive setup needs a terminal; run th completion <bash|zsh|fish|powershell> instead")
 	}
 
 	setups := shellSetups()
@@ -101,7 +101,7 @@ func completionWizard() error {
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().
 			Title("Which shell do you use?").
-			Description("wt will show the line that enables completion and copy it for you.").
+			Description("th will show the line that enables completion and copy it for you.").
 			Options(opts...).
 			Value(&selected),
 	))
@@ -119,7 +119,7 @@ func completionWizard() error {
 		}
 	}
 
-	fmt.Printf("\nTo enable wt completion for %s, add this line to %s:\n\n", setup.name, setup.rcFile)
+	fmt.Printf("\nTo enable th completion for %s, add this line to %s:\n\n", setup.name, setup.rcFile)
 	fmt.Println("    " + colorLine(setup.snippet, ansiBold))
 	fmt.Println()
 
@@ -137,7 +137,7 @@ func completionWizard() error {
 		fmt.Printf("  1. Open %s and add the line shown above\n", setup.rcFile)
 	}
 	fmt.Printf("  2. Restart your shell, or run: %s\n", setup.reload)
-	fmt.Println("  3. Try it: wt <TAB>")
+	fmt.Println("  3. Try it: th <TAB>")
 	if setup.note != "" {
 		fmt.Println("\nNote: " + setup.note)
 	}

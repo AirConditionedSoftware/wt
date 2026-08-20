@@ -11,8 +11,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/AirConditionedSoftware/wt/internal/config"
-	"github.com/AirConditionedSoftware/wt/internal/gitx"
+	"github.com/AirConditionedSoftware/treehouse/internal/config"
+	"github.com/AirConditionedSoftware/treehouse/internal/gitx"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -48,11 +48,11 @@ worktree_dir template unless --path is given.
 If the branch exists locally it is checked out as-is; if it exists on origin
 a local branch tracking it is created; otherwise a new branch is created from
 --base, the config's default_base, or the current HEAD. New branches get the
-config's branch_prefix if one is set (wt add fix-login -> peter/fix-login);
+config's branch_prefix if one is set (th add fix-login -> peter/fix-login);
 --no-prefix skips it.
 
 The created path is the only output on stdout, so shell integration like
-cd "$(wt add my-branch)" works.`,
+cd "$(th add my-branch)" works.`,
 	Args: cobra.ExactArgs(1),
 	RunE: runAdd,
 }
@@ -213,7 +213,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// workspaceFilePath returns where the wt-generated .code-workspace for a
+// workspaceFilePath returns where the th-generated .code-workspace for a
 // worktree lives: next to the worktree directory (a sibling, so it never
 // shows up as an untracked file inside it). "" for branchless worktrees.
 func workspaceFilePath(settings config.Settings, worktreePath, branch string) string {
@@ -262,7 +262,7 @@ func writeWorkspaceFile(worktreePath string, settings config.Settings, repo, bra
 // runPostCreate runs the configured post_create commands inside the new
 // worktree, in order, stopping at the first failure. Commands come only from
 // the user-owned config file, never from the repository. Worktree metadata
-// is passed as WT_* environment variables — never interpolated into the
+// is passed as TH_* environment variables — never interpolated into the
 // command string, since branch names may legally contain shell
 // metacharacters like $( ).
 func runPostCreate(worktreePath, mainPath, repo, branch string, cmds []string) error {
@@ -274,10 +274,10 @@ func runPostCreate(worktreePath, mainPath, repo, branch string, cmds []string) e
 		cmd.Stdout = os.Stderr
 		cmd.Stderr = os.Stderr
 		cmd.Env = append(os.Environ(),
-			"WT_WORKTREE="+worktreePath,
-			"WT_MAIN="+mainPath,
-			"WT_REPO="+repo,
-			"WT_BRANCH="+branch,
+			"TH_WORKTREE="+worktreePath,
+			"TH_MAIN="+mainPath,
+			"TH_REPO="+repo,
+			"TH_BRANCH="+branch,
 		)
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("post_create command %q: %w", c, err)
@@ -287,7 +287,7 @@ func runPostCreate(worktreePath, mainPath, repo, branch string, cmds []string) e
 }
 
 // approveRepoPostCreate gates post_create commands that came from the
-// repository's own .wtrc instead of the user-owned config file, and
+// repository's own .thrc instead of the user-owned config file, and
 // reports whether they may run. Commands identical to a stored approval run
 // without prompting; anything else asks for confirmation and records the
 // answer. Without a terminal to ask at, the commands are skipped with a
@@ -299,7 +299,7 @@ func approveRepoPostCreate(mainPath, localFile string, cmds []string) (bool, err
 	}
 
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		fmt.Fprintf(os.Stderr, "Warning: post_create from %s is not approved; skipping (run wt add interactively to review).\n", displayPath(localFile))
+		fmt.Fprintf(os.Stderr, "Warning: post_create from %s is not approved; skipping (run th add interactively to review).\n", displayPath(localFile))
 		return false, nil
 	}
 
@@ -323,7 +323,7 @@ func approveRepoPostCreate(mainPath, localFile string, cmds []string) (bool, err
 		return false, err
 	}
 	if !allow {
-		// Nothing is stored, so the next wt add asks again.
+		// Nothing is stored, so the next th add asks again.
 		fmt.Fprintln(os.Stderr, "Skipped post_create (not approved)")
 		return false, nil
 	}

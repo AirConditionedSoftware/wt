@@ -1,6 +1,6 @@
-// Package config loads wt's JSON configuration. The file location comes from
-// $WT_CONFIG, defaulting to ~/.wt/wt.json; a missing file at the default
-// location means built-in defaults apply.
+// Package config loads treehouse's JSON configuration. The file location
+// comes from $TH_CONFIG, defaulting to ~/.th/config.json; a missing file at
+// the default location means built-in defaults apply.
 package config
 
 import (
@@ -12,7 +12,14 @@ import (
 )
 
 // EnvVar overrides the config file location.
-const EnvVar = "WT_CONFIG"
+const EnvVar = "TH_CONFIG"
+
+// homeConfigDirName is treehouse's directory under the home directory,
+// holding the global config file and the trust store.
+const homeConfigDirName = ".th"
+
+// globalFileName is the global config file inside homeConfigDirName.
+const globalFileName = "config.json"
 
 // DefaultWorktreeDir places worktrees when no config sets worktree_dir.
 const DefaultWorktreeDir = "~/worktrees/{repo}/{branch}"
@@ -29,7 +36,7 @@ type Settings struct {
 	// DefaultBase is the ref new branches start from when the branch exists
 	// neither locally nor on origin. Empty means the current HEAD.
 	DefaultBase string `json:"default_base,omitempty"`
-	// BranchPrefix is prepended to branch names that wt add creates,
+	// BranchPrefix is prepended to branch names that th add creates,
 	// joined with PrefixSeparator: "peter" -> "peter/fix-login".
 	BranchPrefix string `json:"branch_prefix,omitempty"`
 	// PrefixSeparator joins BranchPrefix to the branch name. Empty means
@@ -44,7 +51,7 @@ type Settings struct {
 	// untracked files (e.g. ".env") to copy into newly created worktrees.
 	// A repo entry's list replaces the global one; [] disables copying.
 	CopyFiles []string `json:"copy_files,omitempty"`
-	// VSCodeOpen opens the worktree in VS Code after wt add creates it.
+	// VSCodeOpen opens the worktree in VS Code after th add creates it.
 	VSCodeOpen *bool `json:"vscode_open,omitempty"`
 	// VSCodeWorkspaceFile writes a .code-workspace file into each new
 	// worktree, named "<vscode_workspace_prefix><branch>.code-workspace".
@@ -64,7 +71,7 @@ type Settings struct {
 	FullPaths *bool `json:"full_paths,omitempty"`
 	// PostCreate commands run inside a newly created worktree, in order,
 	// via sh -c. They come only from this user-owned config file — never
-	// from the repository — and worktree metadata is passed as WT_*
+	// from the repository — and worktree metadata is passed as TH_*
 	// environment variables rather than interpolated into the command.
 	// A repo entry's list replaces the global one; [] disables.
 	PostCreate []string `json:"post_create,omitempty"`
@@ -90,14 +97,14 @@ type RepoConfig struct {
 	Settings
 }
 
-// File is the full wt.json schema: top-level defaults plus per-repo
+// File is the full global-config schema: top-level defaults plus per-repo
 // overrides matched by the main worktree's path.
 type File struct {
 	Settings
 	Repos []RepoConfig `json:"repos,omitempty"`
-	// UpdateCheck lets wt --version query GitHub for a newer release.
+	// UpdateCheck lets th --version query GitHub for a newer release.
 	// Deliberately top-level only — not part of Settings — so a repo's
-	// .wtrc can never turn on network calls.
+	// .thrc can never turn on network calls.
 	UpdateCheck *bool `json:"update_check,omitempty"`
 }
 
@@ -108,9 +115,9 @@ func (f *File) UpdateCheckEnabled() bool {
 
 // LocalFileName is the repo-local config file, read from the root of a
 // repository's main worktree only — never from a linked worktree.
-const LocalFileName = ".wtrc"
+const LocalFileName = ".thrc"
 
-// LocalConfig is the .wtrc schema: the same settings as a repos entry,
+// LocalConfig is the .thrc schema: the same settings as a repos entry,
 // for the repository the file lives in. It is parsed with unknown fields
 // rejected, so "repos" and "path" — meaningless in a file that is itself
 // the repo — fail loudly.
@@ -123,7 +130,7 @@ type LocalConfig struct {
 }
 
 // Path returns the config file location and whether it was set explicitly
-// via $WT_CONFIG.
+// via $TH_CONFIG.
 func Path() (path string, explicit bool, err error) {
 	if p := os.Getenv(EnvVar); p != "" {
 		return p, true, nil
@@ -132,11 +139,11 @@ func Path() (path string, explicit bool, err error) {
 	if err != nil {
 		return "", false, err
 	}
-	return filepath.Join(home, ".wt", "wt.json"), false, nil
+	return filepath.Join(home, homeConfigDirName, globalFileName), false, nil
 }
 
 // Load reads the config file. A missing file at the default location is not
-// an error; a missing file at an explicit $WT_CONFIG location is, so a typo'd
+// an error; a missing file at an explicit $TH_CONFIG location is, so a typo'd
 // path fails loudly instead of being silently ignored.
 func Load() (*File, error) {
 	path, explicit, err := Path()
@@ -182,7 +189,7 @@ func validateWorkspacePaths(desc, where string, wps []WorkspacePath) error {
 	return nil
 }
 
-// loadLocal reads <mainPath>/.wtrc. A missing file is not an error; the
+// loadLocal reads <mainPath>/.thrc. A missing file is not an error; the
 // returned path is reported either way, for provenance. Broken JSON and
 // unknown fields fail loudly, like a broken global config.
 func loadLocal(mainPath string) (*LocalConfig, string, error) {
@@ -211,13 +218,13 @@ func loadLocal(mainPath string) (*LocalConfig, string, error) {
 // values came from.
 type Resolved struct {
 	Settings
-	// RepoName is the .wtrc name, else the global repos entry's name,
+	// RepoName is the .thrc name, else the global repos entry's name,
 	// else "" (the caller falls back to the directory basename).
 	RepoName string
-	// LocalFile is the path of the .wtrc that was loaded, "" if none.
+	// LocalFile is the path of the .thrc that was loaded, "" if none.
 	LocalFile string
 	// PostCreateFromRepo reports that the effective PostCreate came from
-	// .wtrc rather than the user-owned global config, and so needs
+	// .thrc rather than the user-owned global config, and so needs
 	// approval before it runs.
 	PostCreateFromRepo bool
 }
@@ -264,7 +271,7 @@ func (p Provenance) mark(s Settings, name, label string) {
 // Resolve returns the effective settings for the repository whose main
 // worktree is at mainPath, layering built-in defaults, the global config's
 // top-level settings, its matching repos entry, and finally the repo's own
-// .wtrc. Each layer overrides field by field: empty strings fall through,
+// .thrc. Each layer overrides field by field: empty strings fall through,
 // lists and booleans that are set replace the layer below.
 func Resolve(mainPath string) (Resolved, error) {
 	resolved, _, err := ResolveDetailed(mainPath)

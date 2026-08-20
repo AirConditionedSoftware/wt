@@ -1,12 +1,12 @@
 name: Feature request
-description: An idea to make wt better
+description: An idea to make th better
 labels: ["enhancement"]
 body:
   - type: textarea
     id: problem
     attributes:
       label: Problem
-      description: What are you trying to do that wt makes awkward today?
+      description: What are you trying to do that th makes awkward today?
     validations:
       required: true
   - type: textarea
@@ -14,7 +14,7 @@ body:
     attributes:
       label: Proposed behavior
       description: >
-        What should wt do? Sketches of the CLI (`wt add --foo`) or config
+        What should th do? Sketches of the CLI (`th add --foo`) or config
         (`"foo": ...`) are welcome.
     validations:
       required: true

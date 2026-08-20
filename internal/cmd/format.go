@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/AirConditionedSoftware/wt/internal/gitx"
+	"github.com/AirConditionedSoftware/treehouse/internal/gitx"
 )
 
 // worktreeFacts are the live-state details the rich entry format shows.
@@ -105,7 +105,7 @@ func worktreeLines(w gitx.Worktree, infos map[string]gitx.CommitInfo, defBranch 
 }
 
 // worktreeOption renders the two-line rich entry as a picker label — the
-// name/branch line with the metadata line underneath, matching wt list.
+// name/branch line with the metadata line underneath, matching th list.
 func worktreeOption(w gitx.Worktree, infos map[string]gitx.CommitInfo, defBranch string, subjectLimit int) string {
 	line1, line2 := worktreeLines(w, infos, defBranch, gatherFacts(w, defBranch), subjectLimit)
 	if line2 == "" {

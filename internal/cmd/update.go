@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AirConditionedSoftware/wt/internal/config"
+	"github.com/AirConditionedSoftware/treehouse/internal/config"
 )
 
 // latestReleaseAPI is a variable so tests can point it at a local server.
-var latestReleaseAPI = "https://api.github.com/repos/AirConditionedSoftware/wt/releases/latest"
+var latestReleaseAPI = "https://api.github.com/repos/AirConditionedSoftware/treehouse/releases/latest"
 
-const releasesPage = "https://github.com/AirConditionedSoftware/wt/releases/latest"
+const releasesPage = "https://github.com/AirConditionedSoftware/treehouse/releases/latest"
 
 // versionRequested reports whether this invocation is a version query, the
 // only time the update check may run.
@@ -46,7 +46,7 @@ func updateNotice(current string) string {
 	if err != nil {
 		return ""
 	}
-	req.Header.Set("User-Agent", "wt-update-check")
+	req.Header.Set("User-Agent", "treehouse-update-check")
 	resp, err := client.Do(req)
 	if err != nil {
 		return ""
